@@ -1,188 +1,187 @@
 {% extends "base.html" %}
-{% block title %}Sage · Plan · {{ opp.title }}{% endblock %}
+{% block title %}Sage's idea — {{ opp.title }}{% endblock %}
 {% block content %}
 
-<div class="px-8 py-6 max-w-6xl mx-auto">
+<div class="px-10 py-8 max-w-4xl mx-auto">
 
-  <!-- Breadcrumb -->
-  <div class="text-sm text-wmgray-100 mb-3">
-    <a href="/inbox" class="hover:text-wmblue-100">Opportunities</a>
-    <span class="mx-2">›</span>
-    <span class="text-wmgray-130">Plan #{{ opp.id }}</span>
-  </div>
+  <!-- Back -->
+  <a href="/inbox" class="text-sm font-semibold text-wmblue-100 hover:underline mb-4 inline-block">← Back to today's list</a>
 
   <!-- Header -->
-  <div class="bg-white rounded-2xl border border-wmgray-30 p-6 mb-5">
-    <div class="flex items-start gap-4 mb-4">
-      <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0
-                  {% if opp.category == 'catalog' %}cat-catalog{% elif opp.category == 'pricing' %}cat-pricing{% elif opp.category == 'incentives' %}cat-incentives{% else %}cat-seo{% endif %}">
-        {% if opp.category == 'catalog' %}📋{% elif opp.category == 'pricing' %}💰{% elif opp.category == 'incentives' %}🎯{% else %}🔍{% endif %}
-      </div>
-      <div class="flex-1">
-        <div class="flex items-center gap-2 mb-1 flex-wrap">
-          <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold cat-{{ opp.category }} uppercase tracking-wider">{{ opp.category_label }}</span>
-          <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold risk-{{ opp.risk_tier }} uppercase tracking-wider">{{ opp.risk_label }} risk</span>
-          {% if not opp.requires_approval %}
-            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-wmblue-5 text-wmblue-130 uppercase tracking-wider">Auto-eligible</span>
-          {% endif %}
-        </div>
-        <h1 class="text-2xl font-bold leading-tight">{{ opp.title }}</h1>
-        <p class="text-wmgray-100 mt-2">{{ opp.summary }}</p>
+  <div class="bg-white rounded-3xl border border-wmgray-30 card-shadow p-8 mb-6">
+    <div class="flex items-start gap-5 mb-5">
+      <div class="w-16 h-16 sage-grad rounded-2xl flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">S</div>
+      <div>
+        <div class="text-sm font-bold text-wmgray-100 mb-1">Sage's idea · {{ opp.category_label }}</div>
+        <h1 class="text-3xl font-extrabold text-wmgray-160 leading-tight">{{ opp.title }}</h1>
       </div>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-wmgray-30">
-      <div>
-        <div class="text-[10px] uppercase tracking-wider text-wmgray-70 mb-0.5">30-day GMV impact</div>
-        <div class="text-xl font-bold text-wmgreen-100">{{ opp.gmv_impact_usd | money }}</div>
+    <!-- Sage's pitch as a speech bubble -->
+    <div class="bg-wmgray-5 rounded-2xl p-5 mb-5 border-l-4 border-wmblue-100">
+      <p class="text-lg leading-relaxed text-wmgray-130">
+        <span class="font-bold text-wmblue-130">Hey —</span> {{ opp.summary }}
+      </p>
+    </div>
+
+    <!-- Big honest stats -->
+    <div class="grid grid-cols-3 gap-4">
+      <div class="bg-wmgreen-10/40 rounded-xl p-4">
+        <div class="text-xs font-bold text-wmgreen-130 uppercase tracking-wider mb-1">If you say yes</div>
+        <div class="text-2xl font-extrabold text-wmgreen-130">+{{ opp.gmv_impact_usd | money }}</div>
+        <div class="text-xs text-wmgray-100">in extra sales next month</div>
       </div>
-      <div>
-        <div class="text-[10px] uppercase tracking-wider text-wmgray-70 mb-0.5">SKUs affected</div>
-        <div class="text-xl font-bold text-wmgray-160">{{ opp.sku_count | intc }}</div>
+      <div class="bg-wmblue-5 rounded-xl p-4">
+        <div class="text-xs font-bold text-wmblue-130 uppercase tracking-wider mb-1">Items I'd change</div>
+        <div class="text-2xl font-extrabold text-wmgray-160">{{ opp.sku_count | intc }}</div>
+        <div class="text-xs text-wmgray-100">{% if opp.sku_count > opp.proposed_changes|length %}showing top {{ opp.proposed_changes|length }} below{% else %}all shown below{% endif %}</div>
       </div>
-      <div>
-        <div class="text-[10px] uppercase tracking-wider text-wmgray-70 mb-0.5">Confidence</div>
-        <div class="text-xl font-bold text-wmgray-160">{{ opp.confidence }}%</div>
-      </div>
-      <div>
-        <div class="text-[10px] uppercase tracking-wider text-wmgray-70 mb-0.5">Risk tier</div>
-        <div class="text-xl font-bold capitalize
-                    {% if opp.risk_tier == 'low' %}text-wmgreen-100{% elif opp.risk_tier == 'medium' %}text-spark-140{% else %}text-wmred-100{% endif %}">
-          {{ opp.risk_label }}
+      <div class="rounded-xl p-4 tone-{% if opp.risk_tier == 'low' %}easy{% elif opp.risk_tier == 'medium' %}medium{% else %}big{% endif %}">
+        <div class="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">How big a deal is this?</div>
+        <div class="text-2xl font-extrabold">
+          {% if opp.risk_tier == 'low' %}🌱 Quick win{% elif opp.risk_tier == 'medium' %}🤔 Medium{% else %}🧐 Bigger{% endif %}
+        </div>
+        <div class="text-xs opacity-90">
+          {% if opp.risk_tier == 'low' %}safe & easy to undo{% elif opp.risk_tier == 'medium' %}worth thinking about{% else %}take a careful look first{% endif %}
         </div>
       </div>
     </div>
   </div>
 
-  <div class="grid grid-cols-3 gap-5">
-
-    <!-- LEFT: Why this? -->
-    <div class="col-span-1 space-y-4">
-      <div class="bg-white rounded-xl border border-wmgray-30 p-5">
-        <div class="text-xs uppercase tracking-wider text-wmgray-70 font-semibold mb-3">🧠 Why Sage proposed this</div>
-        <p class="text-sm text-wmgray-130 leading-relaxed">{{ opp.reasoning }}</p>
+  <!-- Why I'm suggesting this — collapsible -->
+  <details class="bg-white rounded-2xl border border-wmgray-30 mb-6 group">
+    <summary class="px-6 py-4 cursor-pointer flex items-center justify-between hover:bg-wmgray-5 rounded-2xl">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🧐</span>
+        <span class="font-bold">Why I'm suggesting this</span>
       </div>
-
-      <div class="bg-white rounded-xl border border-wmgray-30 p-5">
-        <div class="text-xs uppercase tracking-wider text-wmgray-70 font-semibold mb-3">📊 Evidence</div>
+      <span class="text-wmgray-100 group-open:rotate-180 transition-transform">▾</span>
+    </summary>
+    <div class="px-6 pb-6 border-t border-wmgray-30 pt-5">
+      <p class="text-wmgray-130 leading-relaxed mb-4">{{ opp.reasoning }}</p>
+      <div class="bg-wmblue-5 rounded-xl p-4">
+        <div class="text-xs font-bold text-wmblue-130 uppercase tracking-wider mb-2">What I'm looking at</div>
         <ul class="space-y-2 text-sm text-wmgray-130">
           {% for e in opp.evidence %}
-            <li class="flex gap-2"><span class="text-wmblue-100 flex-shrink-0">•</span><span>{{ e }}</span></li>
+            <li class="flex gap-2"><span class="text-wmblue-100 flex-shrink-0 font-bold">·</span><span>{{ e }}</span></li>
           {% endfor %}
         </ul>
       </div>
+    </div>
+  </details>
 
-      <div class="bg-white rounded-xl border border-wmgray-30 p-5">
-        <div class="text-xs uppercase tracking-wider text-wmgray-70 font-semibold mb-3">🛠️ Tool calls</div>
-        <div class="space-y-2 text-xs font-mono">
-          {% for t in opp.tool_calls %}
-            <div class="border border-wmgray-30 rounded-lg p-2 bg-wmgray-5">
-              <div class="text-wmblue-130 font-semibold">{{ t.name }}({{ t.args }})</div>
-              <div class="text-wmgray-100 mt-0.5">→ {{ t.result }}</div>
-              <div class="text-wmgray-70 mt-0.5">{{ t.duration_ms }}ms</div>
+  <!-- Proposed changes — visual cards -->
+  <form method="post" action="/plan/{{ opp.id }}/approve">
+
+    <div class="bg-white rounded-3xl border border-wmgray-30 card-shadow overflow-hidden mb-6">
+      <div class="px-6 py-5 border-b border-wmgray-30 bg-wmgray-5">
+        <h2 class="text-xl font-bold mb-1">Here's what I'd like to do</h2>
+        <p class="text-sm text-wmgray-100">
+          Uncheck any item below if you'd rather skip it.
+          {% if opp.sku_count > opp.proposed_changes|length %}
+            (Showing {{ opp.proposed_changes|length }} of {{ opp.sku_count | intc }} items — the rest follow the same pattern.)
+          {% endif %}
+        </p>
+        <div class="mt-3 flex gap-2">
+          <button type="button" onclick="document.querySelectorAll('.row-check').forEach(c=>{c.checked=true; c.dispatchEvent(new Event('change'))})"
+                  class="text-xs px-3 py-1.5 rounded-lg bg-white border border-wmgray-30 hover:border-wmblue-100 text-wmgray-130 font-semibold">
+            Select all
+          </button>
+          <button type="button" onclick="document.querySelectorAll('.row-check').forEach(c=>{c.checked=false; c.dispatchEvent(new Event('change'))})"
+                  class="text-xs px-3 py-1.5 rounded-lg bg-white border border-wmgray-30 hover:border-wmblue-100 text-wmgray-130 font-semibold">
+            Clear all
+          </button>
+        </div>
+      </div>
+
+      <div>
+        {% for ch in opp.proposed_changes %}
+          <div class="row px-6 py-5 border-b border-wmgray-30 last:border-b-0 transition-opacity">
+            <div class="flex items-start gap-4">
+              <!-- Checkbox -->
+              <label class="cursor-pointer mt-1">
+                <input type="checkbox" checked
+                       class="row-check sr-only peer"
+                       data-sku="{{ ch.sku }}">
+                <div class="w-6 h-6 rounded-md border-2 border-wmgray-50 peer-checked:bg-wmblue-100 peer-checked:border-wmblue-100 flex items-center justify-center transition-colors">
+                  <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                  </svg>
+                </div>
+              </label>
+              <input type="checkbox" name="excluded" value="{{ ch.sku }}" class="hidden" disabled>
+
+              <!-- Product -->
+              <div class="text-4xl flex-shrink-0">{{ ch.image_emoji }}</div>
+
+              <!-- Details -->
+              <div class="flex-1 min-w-0">
+                <div class="font-bold text-wmgray-160 leading-snug mb-1">{{ ch.item_name }}</div>
+                <div class="text-xs text-wmgray-100 mb-3">Change: {{ ch.field }}</div>
+
+                <div class="grid md:grid-cols-2 gap-3">
+                  <div class="bubble-current rounded-xl p-3.5">
+                    <div class="text-[11px] font-bold uppercase tracking-wider mb-1.5 text-wmgray-100">Right now</div>
+                    <div class="text-[15px] leading-snug">{{ ch.current }}</div>
+                  </div>
+                  <div class="bubble-proposed rounded-xl p-3.5 relative">
+                    <div class="text-[11px] font-bold uppercase tracking-wider mb-1.5 text-wmblue-130">What I'd change it to</div>
+                    <div class="text-[15px] leading-snug font-semibold">{{ ch.proposed }}</div>
+                    <div class="absolute -top-2 -right-2 bg-spark-100 text-spark-140 text-[11px] font-bold px-2 py-0.5 rounded-full">Sage's suggestion</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Impact -->
+              <div class="text-right flex-shrink-0 hidden md:block w-32">
+                <div class="text-[11px] uppercase tracking-wider text-wmgray-100 font-bold mb-0.5">Extra sales</div>
+                <div class="text-xl font-extrabold text-wmgreen-130">+{{ ch.sku_impact_usd | money }}</div>
+                <div class="text-xs text-wmgray-100">next month</div>
+              </div>
             </div>
-          {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Sticky action bar — friendly version -->
+    <div class="bg-white border-2 border-wmblue-100 rounded-2xl p-5 sticky bottom-4 card-shadow">
+      <div class="flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-3">
+          <div class="text-3xl">
+            {% if opp.requires_approval %}🤔{% else %}✨{% endif %}
+          </div>
+          <div>
+            <div class="font-bold text-wmgray-160 text-lg">
+              {% if opp.requires_approval %}Ready when you are.{% else %}I can handle this on my own — but you can take a look first.{% endif %}
+            </div>
+            <div class="text-sm text-wmgray-100">
+              {% if opp.requires_approval %}I'll only do this if you say yes. You can always undo it later.{% else %}This fits your preferences — small &amp; safe.{% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" formaction="/plan/{{ opp.id }}/defer" formmethod="post"
+                  class="px-4 py-3 rounded-xl text-sm font-bold border-2 border-wmgray-30 text-wmgray-130 hover:border-wmgray-100">
+            Maybe later
+          </button>
+          <button type="button" formaction="/plan/{{ opp.id }}/reject" formmethod="post"
+                  class="px-4 py-3 rounded-xl text-sm font-bold border-2 border-wmgray-30 text-wmgray-130 hover:border-wmred-100 hover:text-wmred-100">
+            No thanks
+          </button>
+          <button type="submit" class="px-7 py-3 rounded-xl text-base font-extrabold bg-wmblue-100 hover:bg-wmblue-110 text-white">
+            Yes, do it →
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- RIGHT: Diff viewer -->
-    <div class="col-span-2">
-      <form method="post" action="/plan/{{ opp.id }}/approve">
-
-        <div class="bg-white rounded-xl border border-wmgray-30 overflow-hidden mb-4">
-          <div class="px-5 py-3 border-b border-wmgray-30 flex items-center justify-between bg-wmgray-5">
-            <div>
-              <div class="font-semibold text-sm">Proposed changes</div>
-              <div class="text-xs text-wmgray-100 mt-0.5">
-                Uncheck any row to exclude it before approving.
-                {% if opp.sku_count > opp.proposed_changes|length %}
-                  Showing {{ opp.proposed_changes|length }} of {{ opp.sku_count | intc }} —
-                  the rest follow the same pattern.
-                {% endif %}
-              </div>
-            </div>
-            <div class="flex items-center gap-2 text-xs">
-              <button type="button" onclick="document.querySelectorAll('.row-check').forEach(c=>c.checked=true)"
-                      class="px-2 py-1 rounded border border-wmgray-30 hover:border-wmblue-100 text-wmgray-130">Select all</button>
-              <button type="button" onclick="document.querySelectorAll('.row-check').forEach(c=>c.checked=false)"
-                      class="px-2 py-1 rounded border border-wmgray-30 hover:border-wmblue-100 text-wmgray-130">Clear</button>
-            </div>
-          </div>
-
-          <div>
-            {% for ch in opp.proposed_changes %}
-              <div class="px-5 py-4 border-b border-wmgray-30 last:border-b-0">
-                <div class="flex items-start gap-3">
-                  <input type="checkbox" checked
-                         class="row-check mt-1 accent-wmblue-100 w-4 h-4 flex-shrink-0"
-                         data-sku="{{ ch.sku }}"
-                         onchange="this.checked || excluded_input(this); document.querySelector('[name=excluded][value=\'{{ ch.sku }}\']').disabled = this.checked;">
-                  <input type="checkbox" name="excluded" value="{{ ch.sku }}" class="hidden" disabled>
-                  <div class="text-2xl flex-shrink-0">{{ ch.image_emoji }}</div>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center justify-between gap-3 mb-2">
-                      <div class="font-semibold text-sm text-wmgray-160 leading-snug">{{ ch.item_name }}</div>
-                      <div class="text-right flex-shrink-0">
-                        <div class="text-[10px] uppercase tracking-wider text-wmgray-70">Impact</div>
-                        <div class="text-sm font-bold text-wmgreen-100">+{{ ch.sku_impact_usd | money }}</div>
-                      </div>
-                    </div>
-                    <div class="text-[11px] font-mono text-wmgray-70 mb-2">SKU: {{ ch.sku }} · {{ ch.field }}</div>
-                    <div class="grid grid-cols-2 gap-2 text-sm">
-                      <div class="border border-wmgray-30 rounded-lg overflow-hidden">
-                        <div class="bg-wmgray-5 px-2 py-1 text-[10px] uppercase tracking-wider text-wmgray-70 font-semibold border-b border-wmgray-30">Current</div>
-                        <div class="px-3 py-2 diff-old break-words">{{ ch.current }}</div>
-                      </div>
-                      <div class="border border-wmgreen-100 rounded-lg overflow-hidden">
-                        <div class="bg-wmgreen-10 px-2 py-1 text-[10px] uppercase tracking-wider text-wmgreen-130 font-semibold border-b border-wmgreen-100">Proposed by Sage</div>
-                        <div class="px-3 py-2 diff-new break-words">{{ ch.proposed }}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-
-        <!-- Sticky action bar -->
-        <div class="bg-white border border-wmgray-30 rounded-xl p-4 flex items-center justify-between sticky bottom-4 shadow-md">
-          <div class="text-sm">
-            {% if opp.requires_approval %}
-              <div class="font-semibold text-wmgray-160">Approval required for this {{ opp.risk_label|lower }}-risk action.</div>
-              <div class="text-xs text-wmgray-100">Sage will execute the changes & log everything to your audit trail.</div>
-            {% else %}
-              <div class="font-semibold text-wmgreen-130">Auto-approve eligible.</div>
-              <div class="text-xs text-wmgray-100">Within your guardrails — Sage could run this unattended.</div>
-            {% endif %}
-          </div>
-          <div class="flex items-center gap-2">
-            <button type="button"
-                    onclick="if(confirm('Reject this proposal? Sage will learn from your feedback.')) location.href='/plan/{{ opp.id }}/reject-link'; return false;"
-                    formaction="/plan/{{ opp.id }}/reject" formmethod="post"
-                    class="px-4 py-2 rounded-lg text-sm font-semibold border border-wmgray-30 text-wmgray-130 hover:border-wmred-100 hover:text-wmred-100">
-              Reject
-            </button>
-            <button type="button" formaction="/plan/{{ opp.id }}/defer" formmethod="post"
-                    class="px-4 py-2 rounded-lg text-sm font-semibold border border-wmgray-30 text-wmgray-130 hover:border-wmblue-100">
-              Defer
-            </button>
-            <button type="submit"
-                    class="px-5 py-2 rounded-lg text-sm font-bold bg-wmblue-100 hover:bg-wmblue-110 text-white">
-              Approve &amp; run →
-            </button>
-          </div>
-        </div>
-
-      </form>
-    </div>
-  </div>
+  </form>
 
 </div>
 
 <script>
-  // Wire reject + defer to actually post via the form
+  // Wire reject + defer to actually post via their formaction
   document.querySelectorAll('button[formaction]').forEach(b => {
     b.addEventListener('click', (e) => {
       e.preventDefault();
@@ -199,7 +198,7 @@
       const sku = cb.dataset.sku;
       const hidden = document.querySelector(`input[name=excluded][value="${sku}"]`);
       if (hidden) hidden.disabled = cb.checked;
-      cb.closest('div.px-5.py-4').classList.toggle('opacity-40', !cb.checked);
+      cb.closest('.row').classList.toggle('opacity-40', !cb.checked);
     });
   });
 </script>

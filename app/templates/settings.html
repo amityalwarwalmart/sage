@@ -1,89 +1,114 @@
 {% extends "base.html" %}
-{% block title %}Sage · Autonomy &amp; Guardrails{% endblock %}
+{% block title %}Your preferences — Sage{% endblock %}
 {% block content %}
-<div class="px-8 py-6 max-w-3xl mx-auto">
+<div class="px-10 py-8 max-w-3xl mx-auto">
 
-  <h1 class="text-2xl font-bold">Autonomy &amp; Guardrails</h1>
-  <p class="text-sm text-wmgray-100 mt-1 mb-6">
-    You're in control. Tune how much Sage can do unattended — anything outside these rules will wait for your approval in the inbox.
+  <h1 class="text-3xl font-extrabold mb-2">Your preferences</h1>
+  <p class="text-lg text-wmgray-130 mb-6">
+    Tell me how much you want me to handle on my own — and what should always wait for your okay.
   </p>
 
   <form method="post" action="/settings" class="space-y-5">
 
-    <!-- Auto-approve master -->
-    <div class="bg-white rounded-xl border border-wmgray-30 p-5">
-      <label class="flex items-start gap-3 cursor-pointer">
+    <!-- Big question: how much autonomy? -->
+    <div class="bg-white rounded-2xl border border-wmgray-30 card-shadow p-7">
+      <div class="flex items-start gap-4 mb-5">
+        <div class="text-3xl">🤝</div>
+        <div>
+          <h2 class="text-xl font-bold mb-1">Should I handle small, easy fixes on my own?</h2>
+          <p class="text-sm text-wmgray-100">For tiny things — like filling in a missing color or matching a 50¢ price — I can just take care of them.</p>
+        </div>
+      </div>
+
+      <label class="flex items-start gap-3 cursor-pointer bg-wmgray-5 rounded-xl p-4 hover:bg-wmblue-5/40">
         <input type="checkbox" name="auto_approve_enabled" {% if s.auto_approve_enabled %}checked{% endif %}
                class="mt-1 w-5 h-5 accent-wmblue-100">
         <div class="flex-1">
-          <div class="font-semibold">Allow Sage to auto-execute low-risk actions</div>
-          <div class="text-sm text-wmgray-100">When off, every action waits for your approval. When on, the rules below apply.</div>
+          <div class="font-bold">Yes, handle the small stuff for me</div>
+          <div class="text-sm text-wmgray-100">I'll only do things that fit the rules below. Everything else will still wait for you.</div>
         </div>
       </label>
 
-      <div class="mt-5 grid md:grid-cols-2 gap-5 pl-8">
+      <div class="mt-5 pl-8 space-y-5">
         <div>
-          <label class="block text-xs font-semibold text-wmgray-100 uppercase tracking-wider mb-1">Max GMV impact per auto-action</label>
+          <label class="block font-bold mb-2">"Small" means worth less than…</label>
           <div class="flex items-center gap-2">
-            <span class="text-wmgray-100">$</span>
+            <span class="text-2xl text-wmgray-100">$</span>
             <input type="number" name="auto_approve_max_usd" value="{{ s.auto_approve_max_usd }}"
-                   class="border border-wmgray-30 rounded-lg px-3 py-2 text-sm w-32 focus:outline-none focus:border-wmblue-100">
+                   class="border-2 border-wmgray-30 rounded-xl px-4 py-2.5 text-lg font-bold w-32 focus:outline-none focus:border-wmblue-100">
+            <span class="text-wmgray-100">in extra sales</span>
           </div>
-          <div class="text-[11px] text-wmgray-70 mt-1">Anything bigger needs your eyes.</div>
+          <div class="text-xs text-wmgray-100 mt-1.5">Anything bigger than this and I'll wait for your okay.</div>
         </div>
         <div>
-          <label class="block text-xs font-semibold text-wmgray-100 uppercase tracking-wider mb-1">Minimum confidence</label>
-          <div class="flex items-center gap-2">
-            <input type="number" min="50" max="100" name="auto_approve_min_confidence" value="{{ s.auto_approve_min_confidence }}"
-                   class="border border-wmgray-30 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:border-wmblue-100">
-            <span class="text-wmgray-100">%</span>
+          <label class="block font-bold mb-2">Only when I'm very sure</label>
+          <div class="space-y-2">
+            {% for val, label in [(95, 'Only when I\u2019m extremely sure (safest)'), (85, 'When I\u2019m pretty sure (recommended)'), (75, 'Even when I\u2019m just somewhat sure (bolder)')] %}
+              <label class="flex items-center gap-3 p-3 bg-wmgray-5 rounded-xl cursor-pointer hover:bg-wmblue-5/40">
+                <input type="radio" name="auto_approve_min_confidence" value="{{ val }}"
+                       {% if s.auto_approve_min_confidence == val %}checked{% endif %}
+                       class="w-5 h-5 accent-wmblue-100">
+                <span class="text-sm">{{ label }}</span>
+              </label>
+            {% endfor %}
           </div>
-          <div class="text-[11px] text-wmgray-70 mt-1">Lower-confidence proposals always queue.</div>
         </div>
         <div>
-          <label class="block text-xs font-semibold text-wmgray-100 uppercase tracking-wider mb-1">Daily action cap</label>
+          <label class="block font-bold mb-2">Most changes I should make in one day</label>
           <input type="number" name="daily_action_cap" value="{{ s.daily_action_cap }}"
-                 class="border border-wmgray-30 rounded-lg px-3 py-2 text-sm w-32 focus:outline-none focus:border-wmblue-100">
-          <div class="text-[11px] text-wmgray-70 mt-1">Circuit breaker.</div>
+                 class="border-2 border-wmgray-30 rounded-xl px-4 py-2.5 text-lg font-bold w-32 focus:outline-none focus:border-wmblue-100">
+          <div class="text-xs text-wmgray-100 mt-1.5">A safety limit — if I'd ever hit this, I'll stop and ask.</div>
         </div>
       </div>
     </div>
 
-    <!-- Capability switches -->
-    <div class="bg-white rounded-xl border border-wmgray-30 p-5">
-      <div class="font-semibold mb-3">Pause specific capabilities</div>
+    <!-- Capability pause -->
+    <div class="bg-white rounded-2xl border border-wmgray-30 card-shadow p-7">
+      <div class="flex items-start gap-4 mb-5">
+        <div class="text-3xl">⏸️</div>
+        <div>
+          <h2 class="text-xl font-bold mb-1">Want me to leave any area alone?</h2>
+          <p class="text-sm text-wmgray-100">Check anything you'd rather handle yourself. I won't suggest ideas in those areas.</p>
+        </div>
+      </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {% for c, icon in [('catalog','📋'), ('pricing','💰'), ('incentives','🎯'), ('seo','🔍')] %}
-          <label class="border border-wmgray-30 rounded-lg p-3 flex items-center gap-2 cursor-pointer hover:border-wmblue-100">
-            <input type="checkbox" name="paused" value="{{ c }}" {% if c in s.paused_capabilities %}checked{% endif %} class="accent-wmred-100">
-            <span class="text-xl">{{ icon }}</span>
-            <span class="text-sm font-semibold capitalize">{{ c }}</span>
+        {% for c, icon, label in [('catalog','📝','Product listings'), ('pricing','💰','Prices'), ('incentives','🎉','Ads & promos'), ('seo','🔍','Search visibility')] %}
+          <label class="border-2 border-wmgray-30 rounded-xl p-4 flex flex-col items-center text-center gap-2 cursor-pointer hover:border-wmred-100">
+            <input type="checkbox" name="paused" value="{{ c }}" {% if c in s.paused_capabilities %}checked{% endif %} class="accent-wmred-100 w-5 h-5">
+            <span class="text-3xl">{{ icon }}</span>
+            <span class="text-xs font-semibold">{{ label }}</span>
           </label>
         {% endfor %}
       </div>
-      <div class="text-xs text-wmgray-70 mt-2">Paused capabilities won't generate new opportunities or take action.</div>
     </div>
 
-    <!-- Always-ask switches -->
-    <div class="bg-white rounded-xl border border-wmgray-30 p-5">
-      <div class="font-semibold mb-3">Always ask before…</div>
-      <div class="space-y-2">
-        {% for name, attr, label in [
-          ('require_clearance', s.require_approval_for_clearance, 'Running clearance / deep discount campaigns'),
-          ('require_ad_spend', s.require_approval_for_ad_spend, 'Spending ad budget'),
-          ('require_bulk_content', s.require_approval_for_bulk_content, 'Bulk content edits affecting >50 SKUs'),
+    <!-- Always-ask -->
+    <div class="bg-white rounded-2xl border border-wmgray-30 card-shadow p-7">
+      <div class="flex items-start gap-4 mb-5">
+        <div class="text-3xl">🛑</div>
+        <div>
+          <h2 class="text-xl font-bold mb-1">Always ask first before…</h2>
+          <p class="text-sm text-wmgray-100">For these bigger moves, I'll always wait for your okay — even small ones.</p>
+        </div>
+      </div>
+      <div class="space-y-3">
+        {% for name, attr, icon, label in [
+          ('require_clearance', s.require_approval_for_clearance, '🔻', 'Running a big sale or clearance'),
+          ('require_ad_spend', s.require_approval_for_ad_spend, '💸', 'Spending money on ads'),
+          ('require_bulk_content', s.require_approval_for_bulk_content, '✏️', 'Changing words on more than 50 listings at once'),
         ] %}
-          <label class="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" name="{{ name }}" {% if attr %}checked{% endif %} class="accent-wmblue-100 w-4 h-4">
-            <span class="text-sm">{{ label }}</span>
+          <label class="flex items-center gap-4 p-4 bg-wmgray-5 rounded-xl cursor-pointer hover:bg-wmblue-5/40">
+            <input type="checkbox" name="{{ name }}" {% if attr %}checked{% endif %} class="accent-wmblue-100 w-5 h-5">
+            <span class="text-2xl">{{ icon }}</span>
+            <span class="font-semibold flex-1">{{ label }}</span>
           </label>
         {% endfor %}
       </div>
     </div>
 
     <div class="flex justify-end">
-      <button type="submit" class="px-5 py-2 rounded-lg bg-wmblue-100 hover:bg-wmblue-110 text-white font-semibold text-sm">
-        Save guardrails
+      <button type="submit" class="px-7 py-3.5 rounded-xl bg-wmblue-100 hover:bg-wmblue-110 text-white font-extrabold text-base">
+        Save my preferences
       </button>
     </div>
   </form>
