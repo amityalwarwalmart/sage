@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Sage · Run · {{ opp.title }}{% endblock %}
+{% block content %}
+
+<div class="px-8 py-6 max-w-5xl mx-auto">
+
+  <div class="text-sm text-wmgray-100 mb-3">
+    <a href="/runs" class="hover:text-wmblue-100">Activity</a>
+    <span class="mx-2">›</span>
+    <span class="text-wmgray-130">Run #{{ opp.id }}</span>
+  </div>
+
+  <!-- Success banner -->
+  <div class="bg-wmgreen-10 border border-wmgreen-100 rounded-xl p-5 mb-5 flex items-start gap-4">
+    <div class="text-3xl">✅</div>
+    <div class="flex-1">
+      <div class="font-bold text-wmgreen-130">Run complete — changes applied.</div>
+      <div class="text-sm text-wmgreen-130/80 mt-1">{{ opp.title }} — Sage applied your approved changes and logged everything to the audit trail.</div>
+    </div>
+    <div class="text-right">
+      <div class="text-[10px] uppercase tracking-wider text-wmgreen-130">Realized 30d impact</div>
+      <div class="text-2xl font-bold text-wmgreen-130">{{ opp.gmv_impact_usd | money }}</div>
+    </div>
+  </div>
+
+  <!-- Activity stream -->
+  <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden">
+    <div class="px-5 py-3 border-b border-wmgray-30 bg-wmgray-5 flex items-center justify-between">
+      <div class="font-semibold text-sm">🌀 Execution stream</div>
+      <div class="text-xs text-wmgray-100">Tool calls in order · {{ opp.tool_calls|length + opp.proposed_changes|length + 2 }} steps</div>
+    </div>
+
+    <div class="p-5 space-y-3 font-mono text-xs">
+
+      <div class="flex gap-3">
+        <div class="text-wmgray-70 w-16 flex-shrink-0">00:00.00</div>
+        <div class="text-wmblue-130 font-semibold">▶ Run started</div>
+      </div>
+
+      {% set t_offset = [0] %}
+      {% for t in opp.tool_calls %}
+        {% set _ = t_offset.append(t_offset[-1] + t.duration_ms) %}
+        <div class="flex gap-3">
+          <div class="text-wmgray-70 w-16 flex-shrink-0">{{ "%05.2f" % (t_offset[-2] / 1000) }}</div>
+          <div class="flex-1">
+            <div class="text-wmblue-130 font-semibold">⚙ {{ t.name }}({{ t.args }})</div>
+            <div class="text-wmgray-100 ml-3">→ {{ t.result }} <span class="text-wmgray-70">({{ t.duration_ms }}ms)</span></div>
+          </div>
+        </div>
+      {% endfor %}
+
+      <div class="flex gap-3 pt-2 border-t border-wmgray-30">
+        <div class="text-wmgray-70 w-16 flex-shrink-0">{{ "%05.2f" % (t_offset[-1] / 1000) }}</div>
+        <div class="text-spark-140 font-semibold">⏸ Awaiting user approval…</div>
+      </div>
+      <div class="flex gap-3">
+        <div class="text-wmgray-70 w-16 flex-shrink-0">{{ "%05.2f" % (t_offset[-1] / 1000 + 4.20) }}</div>
+        <div class="text-wmgreen-130 font-semibold">✓ User approved</div>
+      </div>
+
+      {% for ch in opp.proposed_changes %}
+        {% if not ch.excluded %}
+          <div class="flex gap-3">
+            <div class="text-wmgray-70 w-16 flex-shrink-0">{{ "%05.2f" % (t_offset[-1] / 1000 + 4.20 + loop.index * 0.18) }}</div>
+            <div class="flex-1">
+              <div class="text-wmblue-130 font-semibold">⚙ apply_change(sku={{ ch.sku }}, field={{ ch.field }})</div>
+              <div class="text-wmgreen-130 ml-3">→ ok · +{{ ch.sku_impact_usd | money }} projected</div>
+            </div>
+          </div>
+        {% endif %}
+      {% endfor %}
+
+      <div class="flex gap-3 pt-2 border-t border-wmgray-30">
+        <div class="text-wmgray-70 w-16 flex-shrink-0">{{ "%05.2f" % (t_offset[-1] / 1000 + 4.20 + (opp.proposed_changes|length + 1) * 0.18) }}</div>
+        <div class="text-wmgreen-130 font-semibold">✅ Run complete · audit entry created</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-5 flex items-center justify-between">
+    <a href="/inbox" class="text-sm font-semibold text-wmblue-100 hover:underline">← Back to inbox</a>
+    <a href="/audit" class="text-sm font-semibold text-wmblue-100 hover:underline">View in audit log →</a>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Sage · Activity{% endblock %}
+{% block content %}
+<div class="px-8 py-6 max-w-5xl mx-auto">
+
+  <h1 class="text-2xl font-bold">Activity</h1>
+  <p class="text-sm text-wmgray-100 mt-1 mb-5">Every plan Sage has executed, paused, or that you've rejected.</p>
+
+  <div class="bg-white rounded-xl border border-wmgray-30 overflow-hidden">
+    {% if not recent %}
+      <div class="p-12 text-center text-wmgray-100">
+        <div class="text-3xl mb-2">🌀</div>
+        <div class="font-semibold">No completed runs yet.</div>
+        <div class="text-sm mt-1">Approve an opportunity from the inbox to see Sage in action.</div>
+      </div>
+    {% endif %}
+    {% for o in recent %}
+      <a href="/runs/{{ o.id }}" class="flex items-center gap-4 px-5 py-4 border-b border-wmgray-30 last:border-b-0 hover:bg-wmblue-5/40 transition">
+        <div class="text-2xl">
+          {% if o.status == 'executed' %}✅{% elif o.status == 'rejected' %}❌{% else %}⏸️{% endif %}
+        </div>
+        <div class="flex-1">
+          <div class="font-semibold text-sm text-wmgray-160">{{ o.title }}</div>
+          <div class="text-xs text-wmgray-100">{{ o.category_label }} · {{ o.age }} · {{ o.status|capitalize }}</div>
+        </div>
+        <div class="text-right">
+          <div class="text-sm font-bold {% if o.status == 'executed' %}text-wmgreen-100{% else %}text-wmgray-100{% endif %}">
+            {{ o.gmv_impact_usd | money }}
+          </div>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

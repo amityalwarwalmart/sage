@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Sage · Opportunities Inbox{% endblock %}
+{% block content %}
+
+<div class="px-8 py-6 max-w-6xl mx-auto">
+
+  <div class="flex items-end justify-between mb-1">
+    <div>
+      <h1 class="text-2xl font-bold">Opportunities Inbox</h1>
+      <p class="text-sm text-wmgray-100 mt-1">Ranked by 30-day GMV impact × confidence ÷ risk. Review &amp; approve at scale.</p>
+    </div>
+    <div class="text-xs text-wmgray-100">
+      <kbd class="px-1.5 py-0.5 bg-wmgray-10 border border-wmgray-30 rounded">j</kbd>/<kbd class="px-1.5 py-0.5 bg-wmgray-10 border border-wmgray-30 rounded">k</kbd> nav
+      · <kbd class="px-1.5 py-0.5 bg-wmgray-10 border border-wmgray-30 rounded">a</kbd> approve
+      · <kbd class="px-1.5 py-0.5 bg-wmgray-10 border border-wmgray-30 rounded">r</kbd> reject
+    </div>
+  </div>
+
+  <!-- Filter pills -->
+  <div class="flex items-center gap-2 mt-4 mb-5 text-sm flex-wrap">
+    <span class="text-xs text-wmgray-70 font-semibold mr-1">CAPABILITY</span>
+    {% for c, label, icon in [('all','All','✦'), ('catalog','Catalog','📋'), ('pricing','Pricing','💰'), ('incentives','Incentives','🎯'), ('seo','SEO','🔍')] %}
+      <a href="/inbox?category={{ c }}{% if risk != 'all' %}&risk={{ risk }}{% endif %}"
+         class="px-3 py-1.5 rounded-full border text-xs font-semibold transition
+                {% if category == c %}bg-wmblue-100 text-white border-wmblue-100{% else %}bg-white text-wmgray-130 border-wmgray-30 hover:border-wmblue-100{% endif %}">
+        {{ icon }} {{ label }}
+      </a>
+    {% endfor %}
+
+    <span class="text-xs text-wmgray-70 font-semibold ml-4 mr-1">RISK</span>
+    {% for r, label in [('all','All'), ('low','Low'), ('medium','Medium'), ('high','High')] %}
+      <a href="/inbox?risk={{ r }}{% if category != 'all' %}&category={{ category }}{% endif %}"
+         class="px-3 py-1.5 rounded-full border text-xs font-semibold transition
+                {% if risk == r %}bg-wmgray-160 text-white border-wmgray-160{% else %}bg-white text-wmgray-130 border-wmgray-30 hover:border-wmgray-160{% endif %}">
+        {{ label }}
+      </a>
+    {% endfor %}
+  </div>
+
+  <!-- List -->
+  <div class="bg-white rounded-xl border border-wmgray-30 overflow-hidden">
+    <div class="grid grid-cols-12 px-5 py-2.5 text-[11px] uppercase tracking-wider text-wmgray-70 font-semibold border-b border-wmgray-30 bg-wmgray-5">
+      <div class="col-span-6">Opportunity</div>
+      <div class="col-span-2 text-right">30-day GMV impact</div>
+      <div class="col-span-1 text-right">SKUs</div>
+      <div class="col-span-1 text-right">Conf.</div>
+      <div class="col-span-2 text-right">Status</div>
+    </div>
+
+    {% for o in opps %}
+      <a href="/plan/{{ o.id }}" class="grid grid-cols-12 items-center px-5 py-4 border-b border-wmgray-30 last:border-b-0 hover:bg-wmblue-5/40 transition group">
+        <div class="col-span-6 flex items-start gap-3">
+          <div class="text-2xl flex-shrink-0 mt-0.5">
+            {% if o.category == 'catalog' %}📋{% elif o.category == 'pricing' %}💰{% elif o.category == 'incentives' %}🎯{% else %}🔍{% endif %}
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold cat-{{ o.category }} uppercase tracking-wider">{{ o.category_label }}</span>
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold risk-{{ o.risk_tier }} uppercase tracking-wider">{{ o.risk_label }}</span>
+              {% if not o.requires_approval %}
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-wmblue-5 text-wmblue-130 uppercase tracking-wider">Auto-eligible</span>
+              {% endif %}
+              <span class="text-[11px] text-wmgray-70">· {{ o.age }}</span>
+            </div>
+            <div class="font-semibold text-wmgray-160 group-hover:text-wmblue-100 leading-snug">{{ o.title }}</div>
+            <div class="text-xs text-wmgray-100 mt-0.5 line-clamp-1">{{ o.summary }}</div>
+          </div>
+        </div>
+        <div class="col-span-2 text-right">
+          <div class="font-bold text-wmgreen-100">{{ o.gmv_impact_usd | money }}</div>
+        </div>
+        <div class="col-span-1 text-right text-sm text-wmgray-130">{{ o.sku_count | intc }}</div>
+        <div class="col-span-1 text-right">
+          <div class="inline-flex items-center gap-1 text-sm font-semibold
+                      {% if o.confidence >= 90 %}text-wmgreen-100{% elif o.confidence >= 75 %}text-spark-140{% else %}text-wmred-100{% endif %}">
+            {{ o.confidence }}%
+          </div>
+        </div>
+        <div class="col-span-2 text-right">
+          <span class="inline-flex items-center gap-1 text-xs font-semibold text-wmblue-100 group-hover:underline">
+            Review plan →
+          </span>
+        </div>
+      </a>
+    {% else %}
+      <div class="p-12 text-center text-wmgray-100">
+        <div class="text-3xl mb-2">🎉</div>
+        <div class="font-semibold">All clear!</div>
+        <div class="text-sm mt-1">No open opportunities matching these filters. Sage will keep scanning.</div>
+      </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<script>
+  // Email-client keyboard nav: j/k between rows, Enter to open
+  (function () {
+    const rows = Array.from(document.querySelectorAll('a[href^="/plan/"]'));
+    let idx = -1;
+    function highlight(i) {
+      rows.forEach((r, k) => r.classList.toggle('ring-2', k === i));
+      rows.forEach((r, k) => r.classList.toggle('ring-wmblue-100', k === i));
+      if (rows[i]) rows[i].scrollIntoView({ block: 'nearest' });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'j') { idx = Math.min(idx + 1, rows.length - 1); highlight(idx); }
+      if (e.key === 'k') { idx = Math.max(idx - 1, 0); highlight(idx); }
+      if (e.key === 'Enter' && idx >= 0) { window.location = rows[idx].href; }
+    });
+  })();
+</script>
+
+{% endblock %}

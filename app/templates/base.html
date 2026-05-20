@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Sage — AI Marketplace Manager{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            wmblue: {
+              5:   '#e6efff',
+              10:  '#cfdcfd',
+              50:  '#7ea3f0',
+              70:  '#3b78ea',
+              100: '#0053e2',
+              110: '#0046c2',
+              130: '#003494',
+              160: '#001f5c',
+            },
+            spark: {
+              5:   '#fff6dd',
+              10:  '#ffeaa8',
+              100: '#ffc220',
+              140: '#995213',
+            },
+            wmgray: {
+              5:   '#f9fafb',
+              10:  '#f2f4f7',
+              30:  '#e1e6ed',
+              50:  '#c1c7d0',
+              70:  '#8b95a5',
+              100: '#5d6878',
+              130: '#3a4250',
+              160: '#1a1f2c',
+            },
+            wmred: { 10: '#fde0dc', 100: '#ea1100', 130: '#b50e00' },
+            wmgreen: { 10: '#d6f0c8', 100: '#2a8703', 130: '#1f6602' },
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .sage-grad { background: linear-gradient(135deg, #0053e2 0%, #3b78ea 50%, #ffc220 140%); }
+    .sage-grad-soft { background: linear-gradient(135deg, #e6efff 0%, #fff6dd 100%); }
+    .sage-glow { box-shadow: 0 0 0 4px rgba(0, 83, 226, 0.08); }
+    .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #c1c7d0; border-radius: 3px; }
+    /* Subtle pulsing dot for "agent thinking" */
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+    .pulse-dot { animation: pulseDot 1.4s ease-in-out infinite; }
+    /* Diff styles */
+    .diff-old { background: #fde0dc; text-decoration: line-through; color: #b50e00; }
+    .diff-new { background: #d6f0c8; color: #1f6602; font-weight: 600; }
+    /* Risk pill colors */
+    .risk-low    { background: #d6f0c8; color: #1f6602; }
+    .risk-medium { background: #fff6dd; color: #995213; }
+    .risk-high   { background: #fde0dc; color: #b50e00; }
+    /* Category pill colors */
+    .cat-catalog    { background: #e6efff; color: #003494; }
+    .cat-pricing    { background: #fff6dd; color: #995213; }
+    .cat-incentives { background: #d6f0c8; color: #1f6602; }
+    .cat-seo        { background: #f3e7ff; color: #5a1d8c; }
+  </style>
+</head>
+<body class="bg-wmgray-5 text-wmgray-160 antialiased">
+
+<div class="flex h-screen overflow-hidden">
+
+  <!-- ============ LEFT NAV ============ -->
+  <aside class="w-64 bg-white border-r border-wmgray-30 flex flex-col flex-shrink-0">
+    <!-- Brand -->
+    <a href="/" class="px-5 py-5 border-b border-wmgray-30 flex items-center gap-3 hover:bg-wmgray-5">
+      <div class="w-10 h-10 sage-grad rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md">
+        S
+      </div>
+      <div>
+        <div class="font-bold text-wmgray-160 leading-tight">Sage</div>
+        <div class="text-[11px] text-wmgray-100 leading-tight">AI Marketplace Manager</div>
+      </div>
+    </a>
+
+    <!-- Nav -->
+    <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
+      {% set active = active_page|default('home') %}
+      {% macro navlink(href, key, label, icon, badge=None) -%}
+        <a href="{{ href }}"
+           class="flex items-center justify-between px-3 py-2 rounded-lg transition
+                  {% if active == key %}bg-wmblue-5 text-wmblue-130 font-semibold{% else %}text-wmgray-130 hover:bg-wmgray-5{% endif %}">
+          <span class="flex items-center gap-3">
+            <span class="w-5 text-center">{{ icon|safe }}</span>
+            <span>{{ label }}</span>
+          </span>
+          {% if badge %}<span class="text-xs px-2 py-0.5 rounded-full bg-wmblue-100 text-white">{{ badge }}</span>{% endif %}
+        </a>
+      {%- endmacro %}
+
+      {{ navlink('/', 'home', 'Home', '🏠') }}
+      {{ navlink('/inbox', 'inbox', 'Opportunities', '⚡', open_opps_count|default(none)) }}
+      {{ navlink('/runs', 'runs', 'Activity', '🌀') }}
+      {{ navlink('/audit', 'audit', 'Audit log', '📜') }}
+      {{ navlink('/settings', 'settings', 'Autonomy & guardrails', '🛡️') }}
+
+      <div class="pt-5 pb-2 px-3 text-[11px] uppercase tracking-wider text-wmgray-70 font-semibold">
+        Capabilities
+      </div>
+      <div class="px-3 space-y-1 text-xs">
+        <div class="flex items-center justify-between py-1">
+          <span class="text-wmgray-130">📋 Catalog</span>
+          <span class="text-wmgreen-100">● Active</span>
+        </div>
+        <div class="flex items-center justify-between py-1">
+          <span class="text-wmgray-130">💰 Pricing</span>
+          <span class="text-wmgreen-100">● Active</span>
+        </div>
+        <div class="flex items-center justify-between py-1">
+          <span class="text-wmgray-130">🎯 Incentives</span>
+          <span class="text-wmgreen-100">● Active</span>
+        </div>
+        <div class="flex items-center justify-between py-1">
+          <span class="text-wmgray-130">🔍 SEO</span>
+          <span class="text-wmgreen-100">● Active</span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Bottom: seller context -->
+    <div class="px-4 py-3 border-t border-wmgray-30 bg-wmgray-5 text-xs">
+      <div class="text-wmgray-70 mb-1">Operating on behalf of</div>
+      <div class="font-semibold text-wmgray-160">Acme Marketplace Co.</div>
+      <div class="text-wmgray-100">32,121 SKUs · WFS enabled</div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="flex-1 overflow-y-auto scrollbar-thin">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ============ RIGHT: PERSISTENT CHAT PANEL ============ -->
+  <aside id="sage-panel" class="w-96 bg-white border-l border-wmgray-30 flex flex-col flex-shrink-0">
+    <div class="px-4 py-3 border-b border-wmgray-30 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-2 h-2 rounded-full bg-wmgreen-100 pulse-dot"></div>
+        <div class="font-semibold text-sm">Ask Sage</div>
+      </div>
+      <div class="text-[11px] text-wmgray-70">Always on · scanning catalog</div>
+    </div>
+
+    <div id="chat-thread" class="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-thin text-sm">
+      <!-- Sage greeting -->
+      <div class="flex gap-2">
+        <div class="w-7 h-7 sage-grad rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">S</div>
+        <div class="bg-wmgray-5 rounded-2xl rounded-tl-sm px-3 py-2">
+          <div>Good morning! I scanned your catalog overnight and found <strong>7 opportunities worth $241K</strong> in 30-day GMV impact.</div>
+          <div class="mt-2 text-wmgray-100 text-xs">3 are auto-approve eligible · 4 need your review</div>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <div class="w-7 h-7 sage-grad rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">S</div>
+        <div class="bg-wmgray-5 rounded-2xl rounded-tl-sm px-3 py-2">
+          Want me to walk you through the highest-impact one first?
+        </div>
+      </div>
+    </div>
+
+    <form hx-post="/chat" hx-target="#chat-thread" hx-swap="beforeend"
+          class="border-t border-wmgray-30 p-3 bg-wmgray-5"
+          hx-on::after-request="this.reset(); document.getElementById('chat-thread').scrollTop = document.getElementById('chat-thread').scrollHeight;">
+
+      <div class="text-[11px] text-wmgray-70 mb-2 px-1 flex items-center gap-2 flex-wrap">
+        <span class="font-semibold">Try:</span>
+        <button type="button" class="px-2 py-0.5 rounded bg-white border border-wmgray-30 hover:border-wmblue-100"
+                onclick="document.getElementById('chat-input').value='/reprice aging-inventory'">/reprice aging</button>
+        <button type="button" class="px-2 py-0.5 rounded bg-white border border-wmgray-30 hover:border-wmblue-100"
+                onclick="document.getElementById('chat-input').value='/fix-listings poor'">/fix-listings</button>
+        <button type="button" class="px-2 py-0.5 rounded bg-white border border-wmgray-30 hover:border-wmblue-100"
+                onclick="document.getElementById('chat-input').value='/claim-ad-credit'">/claim-ad-credit</button>
+      </div>
+
+      <div class="flex gap-2 items-end">
+        <textarea id="chat-input" name="message" rows="2" required
+                  placeholder="Ask Sage… or type / for commands"
+                  class="flex-1 resize-none border border-wmgray-30 rounded-lg px-3 py-2 text-sm
+                         focus:outline-none focus:border-wmblue-100 focus:sage-glow"></textarea>
+        <button type="submit"
+                class="bg-wmblue-100 hover:bg-wmblue-110 text-white rounded-lg px-3 py-2 text-sm font-semibold">
+          Send
+        </button>
+      </div>
+    </form>
+  </aside>
+
+</div>
+
+</body>
+</html>

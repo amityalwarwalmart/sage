@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Sage · Audit log{% endblock %}
+{% block content %}
+<div class="px-8 py-6 max-w-5xl mx-auto">
+
+  <div class="flex items-end justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">Audit log</h1>
+      <p class="text-sm text-wmgray-100 mt-1">Every change made on your account — by Sage or by you. Reversible by default.</p>
+    </div>
+    <div class="flex items-center gap-2 text-xs">
+      {% for a, label in [('all','All'), ('sage','By Sage'), ('user','By you')] %}
+        <a href="/audit?actor={{ a }}"
+           class="px-3 py-1.5 rounded-full border font-semibold transition
+                  {% if actor == a %}bg-wmgray-160 text-white border-wmgray-160{% else %}bg-white text-wmgray-130 border-wmgray-30 hover:border-wmgray-160{% endif %}">
+          {{ label }}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl border border-wmgray-30 mt-5 overflow-hidden">
+    {% for e in entries %}
+      <div class="grid grid-cols-12 items-center px-5 py-3.5 border-b border-wmgray-30 last:border-b-0 gap-3 {% if e.reverted %}opacity-50{% endif %}">
+        <div class="col-span-2 text-xs text-wmgray-100">
+          {{ e.ts.strftime('%b %d · %I:%M %p') }}
+        </div>
+        <div class="col-span-1">
+          {% if e.actor == 'sage' %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-wmblue-5 text-wmblue-130 text-[11px] font-semibold">
+              <span class="w-1.5 h-1.5 rounded-full bg-wmblue-100"></span> Sage
+            </span>
+          {% else %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-wmgray-10 text-wmgray-130 text-[11px] font-semibold">You</span>
+          {% endif %}
+        </div>
+        <div class="col-span-6">
+          <div class="font-semibold text-sm text-wmgray-160">{{ e.action }}</div>
+          <div class="text-xs text-wmgray-100">{{ e.target }}</div>
+          <div class="text-xs text-wmgray-70 mt-0.5 italic">{{ e.detail }}</div>
+        </div>
+        <div class="col-span-2 text-right text-sm font-bold {% if e.gmv_impact_usd > 0 %}text-wmgreen-100{% else %}text-wmgray-100{% endif %}">
+          {% if e.gmv_impact_usd > 0 %}+{{ e.gmv_impact_usd | money }}{% else %}—{% endif %}
+        </div>
+        <div class="col-span-1 text-right">
+          {% if e.reverted %}
+            <span class="text-[11px] text-wmgray-70">Reverted</span>
+          {% else %}
+            <form method="post" action="/audit/{{ e.id }}/revert">
+              <button class="text-[11px] font-semibold text-wmgray-130 hover:text-wmred-100" type="submit"
+                      onclick="return confirm('Revert this action?')">Revert</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    {% else %}
+      <div class="p-12 text-center text-wmgray-100">No audit entries for this filter.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
