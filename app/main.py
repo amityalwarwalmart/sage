@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.routers import audit, chat, home, inbox, plan, runs
+from app.routers import audit, chat, home, inbox, plan, rules, runs
 from app.routers import settings as settings_router
 
 app = FastAPI(title="Sage — AI Marketplace Manager")
@@ -12,6 +12,7 @@ app.include_router(home.router)
 app.include_router(inbox.router)
 app.include_router(plan.router)
 app.include_router(runs.router)
+app.include_router(rules.router)
 app.include_router(settings_router.router)
 app.include_router(audit.router)
 app.include_router(chat.router)

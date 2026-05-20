@@ -17,7 +17,7 @@ async def inbox(request: Request, category: str | None = None, risk: str | None 
     kpi = kpi_summary()
     return templates.TemplateResponse(request=request, name="inbox.html", context={
         "request": request,
-        "active_page": "inbox",
+        "active_page": "sage", "sub_page": "inbox",
         "opps": opps,
         "category": category or "all",
         "risk": risk or "all",

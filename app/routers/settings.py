@@ -11,7 +11,7 @@ router = APIRouter()
 async def view_settings(request: Request):
     return templates.TemplateResponse(request=request, name="settings.html", context={
         "request": request,
-        "active_page": "settings",
+        "active_page": "sage", "sub_page": "settings",
         "s": SETTINGS,
         "open_opps_count": kpi_summary()["open_opps"],
     })

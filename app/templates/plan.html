@@ -95,12 +95,24 @@
       </div>
 
       <div>
+        {% set skipped = opp.proposed_changes | selectattr('skipped_reason') | list %}
+        {% if skipped %}
+          <div class="mx-6 mt-5 mb-4 bg-spark-5 border-l-4 border-spark-100 rounded-xl p-4 flex items-start gap-3">
+            <div class="text-2xl flex-shrink-0">🛡️</div>
+            <div class="text-sm text-spark-140">
+              <strong>Heads up — your price rules stopped me from changing {{ skipped|length }} item{% if skipped|length != 1 %}s{% endif %}.</strong>
+              I would have suggested a lower price, but it would have broken the floor you set. Those rows are marked below.
+              You can <a href="/rules" class="underline font-bold">adjust your rules</a> if you'd like.
+            </div>
+          </div>
+        {% endif %}
+
         {% for ch in opp.proposed_changes %}
-          <div class="row px-6 py-5 border-b border-wmgray-30 last:border-b-0 transition-opacity">
+          <div class="row px-6 py-5 border-b border-wmgray-30 last:border-b-0 transition-opacity {% if ch.skipped_reason %}bg-spark-5/40{% endif %}">
             <div class="flex items-start gap-4">
-              <!-- Checkbox -->
-              <label class="cursor-pointer mt-1">
-                <input type="checkbox" checked
+              <!-- Checkbox (disabled for skipped rows) -->
+              <label class="cursor-pointer mt-1 {% if ch.skipped_reason %}opacity-30 pointer-events-none{% endif %}">
+                <input type="checkbox" {% if not ch.skipped_reason %}checked{% endif %} {% if ch.skipped_reason %}disabled{% endif %}
                        class="row-check sr-only peer"
                        data-sku="{{ ch.sku }}">
                 <div class="w-6 h-6 rounded-md border-2 border-wmgray-50 peer-checked:bg-wmblue-100 peer-checked:border-wmblue-100 flex items-center justify-center transition-colors">
@@ -109,34 +121,59 @@
                   </svg>
                 </div>
               </label>
-              <input type="checkbox" name="excluded" value="{{ ch.sku }}" class="hidden" disabled>
+              <input type="checkbox" name="excluded" value="{{ ch.sku }}" class="hidden" {% if not ch.skipped_reason %}disabled{% endif %}>
 
               <!-- Product -->
               <div class="text-4xl flex-shrink-0">{{ ch.image_emoji }}</div>
 
               <!-- Details -->
               <div class="flex-1 min-w-0">
-                <div class="font-bold text-wmgray-160 leading-snug mb-1">{{ ch.item_name }}</div>
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="font-bold text-wmgray-160 leading-snug">{{ ch.item_name }}</div>
+                  {% if ch.skipped_reason %}
+                    <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-spark-100 text-spark-140">🛡️ Stopped by your rule</span>
+                  {% else %}
+                    <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-wmgreen-10 text-wmgreen-130">✓ Within your rules</span>
+                  {% endif %}
+                </div>
                 <div class="text-xs text-wmgray-100 mb-3">Change: {{ ch.field }}</div>
 
-                <div class="grid md:grid-cols-2 gap-3">
-                  <div class="bubble-current rounded-xl p-3.5">
-                    <div class="text-[11px] font-bold uppercase tracking-wider mb-1.5 text-wmgray-100">Right now</div>
-                    <div class="text-[15px] leading-snug">{{ ch.current }}</div>
+                {% if ch.skipped_reason %}
+                  <!-- Skipped row: show what Sage wanted vs the rule -->
+                  <div class="bubble-skipped rounded-xl p-4">
+                    <div class="text-[12px] font-bold uppercase tracking-wider mb-2">What I would have done — but didn't</div>
+                    <div class="text-[15px] leading-snug mb-2">{{ ch.skipped_reason }}</div>
+                    <div class="flex flex-wrap gap-4 text-xs mt-3 pt-3 border-t border-spark-100/40">
+                      <div><span class="font-bold">I wanted to set:</span> {{ ch.skipped_wanted }}</div>
+                      <div><span class="font-bold">Your rule:</span> {{ ch.skipped_floor_or_ceiling }}</div>
+                    </div>
                   </div>
-                  <div class="bubble-proposed rounded-xl p-3.5 relative">
-                    <div class="text-[11px] font-bold uppercase tracking-wider mb-1.5 text-wmblue-130">What I'd change it to</div>
-                    <div class="text-[15px] leading-snug font-semibold">{{ ch.proposed }}</div>
-                    <div class="absolute -top-2 -right-2 bg-spark-100 text-spark-140 text-[11px] font-bold px-2 py-0.5 rounded-full">Sage's suggestion</div>
+                {% else %}
+                  <div class="grid md:grid-cols-2 gap-3">
+                    <div class="bubble-current rounded-xl p-3.5">
+                      <div class="text-[11px] font-bold uppercase tracking-wider mb-1.5 text-wmgray-100">Right now</div>
+                      <div class="text-[15px] leading-snug">{{ ch.current }}</div>
+                    </div>
+                    <div class="bubble-proposed rounded-xl p-3.5 relative">
+                      <div class="text-[11px] font-bold uppercase tracking-wider mb-1.5 text-wmblue-130">What I'd change it to</div>
+                      <div class="text-[15px] leading-snug font-semibold">{{ ch.proposed }}</div>
+                      <div class="absolute -top-2 -right-2 bg-spark-100 text-spark-140 text-[11px] font-bold px-2 py-0.5 rounded-full">Sage's suggestion</div>
+                    </div>
                   </div>
-                </div>
+                {% endif %}
               </div>
 
               <!-- Impact -->
               <div class="text-right flex-shrink-0 hidden md:block w-32">
-                <div class="text-[11px] uppercase tracking-wider text-wmgray-100 font-bold mb-0.5">Extra sales</div>
-                <div class="text-xl font-extrabold text-wmgreen-130">+{{ ch.sku_impact_usd | money }}</div>
-                <div class="text-xs text-wmgray-100">next month</div>
+                {% if ch.skipped_reason %}
+                  <div class="text-[11px] uppercase tracking-wider text-spark-140 font-bold mb-0.5">Skipped</div>
+                  <div class="text-2xl font-extrabold text-spark-140">—</div>
+                  <div class="text-xs text-wmgray-100">protecting margin</div>
+                {% else %}
+                  <div class="text-[11px] uppercase tracking-wider text-wmgray-100 font-bold mb-0.5">Extra sales</div>
+                  <div class="text-xl font-extrabold text-wmgreen-130">+{{ ch.sku_impact_usd | money }}</div>
+                  <div class="text-xs text-wmgray-100">next month</div>
+                {% endif %}
               </div>
             </div>
           </div>

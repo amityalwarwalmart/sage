@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}Sage — Your Walmart Marketplace helper{% endblock %}</title>
+  <title>{% block title %}Sage · Seller Center{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -32,7 +32,7 @@
     }
   </script>
   <style>
-    body { font-family: 'Inter', system-ui, sans-serif; font-size: 16px; line-height: 1.55; }
+    body { font-family: 'Inter', system-ui, sans-serif; font-size: 15px; line-height: 1.55; }
     .sage-grad { background: linear-gradient(135deg, #0053e2 0%, #3b78ea 50%, #ffc220 140%); }
     .sage-grad-soft { background: linear-gradient(135deg, #e6efff 0%, #fff6dd 100%); }
     .sage-glow { box-shadow: 0 0 0 4px rgba(0, 83, 226, 0.10); }
@@ -45,75 +45,130 @@
       50% { opacity: 0.5; transform: scale(0.85); }
     }
     .pulse-dot { animation: pulseDot 1.4s ease-in-out infinite; }
-    @keyframes slideUp {
-      from { transform: translateY(20px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .slide-up { animation: slideUp 0.3s ease-out; }
-    /* Tone tags */
     .tone-easy { background: #d6f0c8; color: #1f6602; }
     .tone-medium { background: #fff6dd; color: #995213; }
     .tone-big { background: #ffeaa8; color: #995213; }
-    /* Diff bubbles */
     .bubble-current { background: #f2f4f7; border: 1px solid #e1e6ed; color: #3a4250; }
     .bubble-proposed { background: #e6efff; border: 2px solid #0053e2; color: #001f5c; }
+    .bubble-skipped { background: #fff6dd; border: 1px dashed #995213; color: #995213; }
+    /* Sage shimmer on the nav link */
+    @keyframes shimmer {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    .sage-shimmer {
+      background: linear-gradient(90deg, #0053e2, #3b78ea, #ffc220, #3b78ea, #0053e2);
+      background-size: 200% 100%;
+      animation: shimmer 6s ease-in-out infinite;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
   </style>
 </head>
 <body class="bg-wmgray-5 text-wmgray-160 antialiased">
 
-<div class="flex h-screen overflow-hidden">
+<!-- ============ TOP BAR (Seller Center) ============ -->
+<header class="h-14 bg-white border-b border-wmgray-30 flex items-center px-5 sticky top-0 z-30 relative">
+  <!-- App switcher dots + Seller Center wordmark -->
+  <div class="flex items-center gap-3">
+    <button class="w-9 h-9 rounded-lg hover:bg-wmgray-10 flex items-center justify-center text-wmgray-100" aria-label="Apps">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="6" r="1.6"/><circle cx="12" cy="6" r="1.6"/><circle cx="18" cy="6" r="1.6"/><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/><circle cx="6" cy="18" r="1.6"/><circle cx="12" cy="18" r="1.6"/><circle cx="18" cy="18" r="1.6"/></svg>
+    </button>
+    <a href="/" class="font-extrabold text-wmblue-100 text-xl tracking-tight">Seller Center</a>
+  </div>
 
-  <!-- ============ LEFT NAV ============ -->
-  <aside class="w-64 bg-white border-r border-wmgray-30 flex flex-col flex-shrink-0">
-    <!-- Brand -->
-    <a href="/" class="px-5 py-5 border-b border-wmgray-30 flex items-center gap-3 hover:bg-wmgray-5">
-      <div class="w-11 h-11 sage-grad rounded-2xl flex items-center justify-center text-white font-bold text-xl card-shadow">
-        S
-      </div>
-      <div>
-        <div class="font-bold text-wmgray-160 leading-tight text-lg">Sage</div>
-        <div class="text-xs text-wmgray-100 leading-tight">Your Walmart helper</div>
-      </div>
-    </a>
+  <!-- Centered shop selector -->
+  <div class="absolute left-1/2 -translate-x-1/2 -top-0.5">
+    <div class="bg-wmgray-160 text-white text-xs font-semibold px-3 py-1.5 rounded-b-lg flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-wmgreen-100"></span>
+      <span>Acme Marketplace Co.</span>
+      <span class="text-wmgray-50">·</span>
+      <span class="text-wmgray-50">10000000517</span>
+      <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor"><path d="M2 4l4 4 4-4"/></svg>
+    </div>
+  </div>
 
-    <!-- Nav -->
-    <nav class="flex-1 px-3 py-4 space-y-1 text-[15px]">
-      {% set active = active_page|default('home') %}
-      {% macro navlink(href, key, label, icon, badge=None) -%}
-        <a href="{{ href }}"
-           class="flex items-center justify-between px-3 py-2.5 rounded-xl transition
-                  {% if active == key %}bg-wmblue-5 text-wmblue-130 font-bold{% else %}text-wmgray-130 hover:bg-wmgray-5 font-medium{% endif %}">
-          <span class="flex items-center gap-3">
-            <span class="text-lg">{{ icon|safe }}</span>
-            <span>{{ label }}</span>
-          </span>
-          {% if badge %}<span class="text-xs px-2 py-0.5 rounded-full bg-wmblue-100 text-white font-bold">{{ badge }}</span>{% endif %}
+  <!-- Right side -->
+  <div class="ml-auto flex items-center gap-2">
+    <div class="relative">
+      <input type="text" placeholder="Try searching for Reports"
+             class="w-72 bg-wmgray-5 border border-wmgray-30 rounded-full pl-4 pr-10 py-2 text-sm focus:outline-none focus:border-wmblue-100">
+      <svg class="absolute right-3 top-1/2 -translate-y-1/2 text-wmgray-100" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    </div>
+    <button class="relative w-9 h-9 rounded-lg hover:bg-wmgray-10 flex items-center justify-center text-wmgray-100">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v12H6l-2 4z"/></svg>
+      <span class="absolute -top-0.5 -right-0.5 bg-wmblue-100 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">1</span>
+    </button>
+    <button class="relative w-9 h-9 rounded-lg hover:bg-wmgray-10 flex items-center justify-center text-wmgray-100">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0112 0v4l2 4H4l2-4V8zM10 20a2 2 0 004 0"/></svg>
+      <span class="absolute -top-0.5 -right-0.5 bg-wmred-100 text-white text-[10px] font-bold rounded-full px-1.5 h-4 flex items-center justify-center">74</span>
+    </button>
+    <button class="w-9 h-9 rounded-lg hover:bg-wmgray-10 flex items-center justify-center text-wmgray-100">?</button>
+    <button class="w-9 h-9 rounded-lg hover:bg-wmgray-10 flex items-center justify-center text-wmgray-100">⚙</button>
+    <div class="w-9 h-9 rounded-full sage-grad ml-1"></div>
+    <div class="w-9 h-9 rounded-full bg-wmgray-30 flex items-center justify-center font-bold text-wmgray-130 text-xs">AT</div>
+  </div>
+</header>
+
+<div class="flex" style="height: calc(100vh - 56px);">
+
+  <!-- ============ LEFT NAV (Seller Center style) ============ -->
+  <aside class="w-60 bg-white border-r border-wmgray-30 flex-shrink-0 overflow-y-auto scrollbar-thin">
+    <nav class="py-3 text-[14px]">
+      {% set active = active_page|default('sage') %}
+
+      {%- macro nav(href, key, label, icon_svg, badge=None) -%}
+        <a href="{{ href }}" class="flex items-center gap-3 px-5 py-2.5 transition
+                  {% if active == key %}text-wmblue-100 font-bold bg-wmblue-5{% else %}text-wmgray-160 hover:bg-wmgray-5{% endif %}">
+          <span class="w-5 flex-shrink-0 {% if active == key %}text-wmblue-100{% else %}text-wmgray-100{% endif %}">{{ icon_svg|safe }}</span>
+          <span class="flex-1">{{ label }}</span>
+          {% if badge %}<span class="text-[10px] px-1.5 py-0.5 rounded bg-wmblue-100 text-white font-bold">{{ badge }}</span>{% endif %}
         </a>
       {%- endmacro %}
 
-      {{ navlink('/', 'home', 'Home', '🏠') }}
-      {{ navlink('/inbox', 'inbox', "Today's to-do list", '✨', open_opps_count|default(none)) }}
-      {{ navlink('/runs', 'runs', "What I've done lately", '✅') }}
-      {{ navlink('/audit', 'audit', 'Full history', '📜') }}
-      {{ navlink('/settings', 'settings', 'Your preferences', '⚙️') }}
+      {%- macro subnav(href, key, label, active_sub) -%}
+        <a href="{{ href }}" class="flex items-center gap-3 pl-12 pr-5 py-1.5 text-[13px] transition
+                  {% if active_sub == key %}text-wmblue-100 font-semibold{% else %}text-wmgray-130 hover:bg-wmgray-5{% endif %}">
+          <span class="w-1.5 h-1.5 rounded-full {% if active_sub == key %}bg-wmblue-100{% else %}border border-wmgray-50{% endif %}"></span>
+          <span>{{ label }}</span>
+        </a>
+      {%- endmacro %}
 
-      <div class="pt-6 pb-2 px-3 text-xs text-wmgray-70 font-semibold">
-        I keep an eye on
-      </div>
-      <div class="px-3 space-y-1 text-[13px] text-wmgray-100">
-        <div class="py-1">📝 Your product listings</div>
-        <div class="py-1">💰 Your prices</div>
-        <div class="py-1">🎉 Sales &amp; ad spend</div>
-        <div class="py-1">🔍 How easy you are to find</div>
-      </div>
+      {{ nav('#', 'home', 'Home', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7v9a2 2 0 01-2 2h-3v-7H10v7H7a2 2 0 01-2-2z"/></svg>') }}
+
+      <!-- THE NEW ITEM: Sage -->
+      <a href="/" class="flex items-center gap-3 px-5 py-2.5 transition relative
+                {% if active == 'sage' %}font-bold bg-wmblue-5{% else %}hover:bg-wmgray-5{% endif %}">
+        <span class="w-5 flex-shrink-0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg>
+        </span>
+        <span class="flex-1 {% if active == 'sage' %}sage-shimmer{% else %}text-wmgray-160{% endif %}">Sage</span>
+        <span class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-spark-100 text-spark-140">NEW</span>
+      </a>
+      {% if active == 'sage' %}
+        {{ subnav('/', 'home', 'Home', sub_page|default('')) }}
+        {{ subnav('/inbox', 'inbox', "Today's to-do list", sub_page|default('')) }}
+        {{ subnav('/rules', 'rules', 'Price rules', sub_page|default('')) }}
+        {{ subnav('/runs', 'runs', "What I've done", sub_page|default('')) }}
+        {{ subnav('/audit', 'audit', 'Full history', sub_page|default('')) }}
+        {{ subnav('/settings', 'settings', 'Preferences', sub_page|default('')) }}
+      {% endif %}
+
+      {{ nav('#', 'catalog', 'Catalog', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>') }}
+      {{ nav('#', 'pricing', 'Pricing', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12l-7.6 7.6a2 2 0 01-2.8 0L2 11.2V4h7.2L20 14.8z"/><circle cx="7" cy="8" r="1.2"/></svg>') }}
+      {{ nav('#', 'orders', 'Orders', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2l-3 6v13a1 1 0 001 1h16a1 1 0 001-1V8l-3-6zM3 8h18M16 12a4 4 0 11-8 0"/></svg>') }}
+      {{ nav('#', 'wfs', 'WFS', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18v13H3z"/><path d="M3 7l3-4h12l3 4"/></svg>') }}
+      {{ nav('#', 'payments', 'Payments', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 11h20"/></svg>') }}
+      {{ nav('#', 'performance', 'Performance', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4a8 8 0 100 16M12 4v8l5 3"/></svg>') }}
+      {{ nav('#', 'analytics', 'Analytics', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20h18M6 16v-6M11 16V4M16 16v-9M21 16v-3"/></svg>') }}
+      {{ nav('#', 'growth', 'Growth', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4-7 4 4 6-7M14 2h5v5"/></svg>') }}
+      {{ nav('#', 'advertising', 'Advertising', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11v2l11 5V6L3 11zM14 6v12M19 10a2 2 0 010 4"/></svg>') }}
+      {{ nav('#', 'reports', 'Reports', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h12l4 4v12H4z"/><path d="M8 12h8M8 16h6M8 8h4"/></svg>') }}
+      {{ nav('#', 'apps', 'Apps', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>') }}
     </nav>
-
-    <!-- Bottom: seller context -->
-    <div class="px-4 py-4 border-t border-wmgray-30 bg-wmgray-5">
-      <div class="text-xs text-wmgray-70 mb-1">Your shop</div>
-      <div class="font-bold text-wmgray-160 text-sm">Acme Marketplace Co.</div>
-      <div class="text-xs text-wmgray-100">32,121 items for sale</div>
-    </div>
   </aside>
 
   <!-- ============ MAIN ============ -->
@@ -183,10 +238,8 @@
 
 <script>
   function toggleChat() {
-    const p = document.getElementById('chat-panel');
-    const t = document.getElementById('chat-toggle');
-    p.classList.toggle('hidden');
-    t.classList.toggle('hidden');
+    document.getElementById('chat-panel').classList.toggle('hidden');
+    document.getElementById('chat-toggle').classList.toggle('hidden');
   }
 </script>
 

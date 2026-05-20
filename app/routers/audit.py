@@ -14,7 +14,7 @@ async def audit_log(request: Request, actor: str | None = None):
         entries = [e for e in entries if e.actor == actor]
     return templates.TemplateResponse(request=request, name="audit.html", context={
         "request": request,
-        "active_page": "audit",
+        "active_page": "sage", "sub_page": "audit",
         "entries": entries,
         "actor": actor or "all",
         "open_opps_count": kpi_summary()["open_opps"],

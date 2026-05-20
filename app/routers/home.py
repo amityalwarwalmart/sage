@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
 
-from app.data.mock import OPPORTUNITIES, kpi_summary, opps_by_category
+from app.data.mock import GUARDRAILS, OPPORTUNITIES, kpi_summary, opps_by_category
 from app.templates_env import templates
 
 router = APIRouter()
@@ -17,9 +17,10 @@ async def home(request: Request):
     )[:3]
     return templates.TemplateResponse(request=request, name="home.html", context={
         "request": request,
-        "active_page": "home",
+        "active_page": "sage", "sub_page": "home",
         "kpi": kpi,
         "by_cat": by_cat,
         "top_opps": top_opps,
         "open_opps_count": kpi["open_opps"],
+        "rules_count": len([g for g in GUARDRAILS.values() if g.has_floor or g.has_ceiling]),
     })

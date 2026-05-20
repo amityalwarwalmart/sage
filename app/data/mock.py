@@ -28,6 +28,36 @@ class ProposedChange:
     sku_impact_usd: float
     image_emoji: str = "📦"
     excluded: bool = False
+    # Optional: if Sage skipped this because it would violate the price guardrail
+    skipped_reason: str = ""
+    skipped_wanted: str = ""
+    skipped_floor_or_ceiling: str = ""
+
+
+@dataclass
+class PriceGuardrail:
+    """Per-item minimum and maximum price Sage will never cross."""
+    sku: str
+    item_name: str
+    image_emoji: str
+    cost: float | None  # what it costs you (optional)
+    floor: float | None  # the lowest Sage may ever drop to
+    ceiling: float | None  # the highest Sage may ever raise to
+    current_price: float
+
+    @property
+    def has_floor(self) -> bool:
+        return self.floor is not None
+
+    @property
+    def has_ceiling(self) -> bool:
+        return self.ceiling is not None
+
+    @property
+    def margin_pct(self) -> float | None:
+        if self.cost and self.cost > 0:
+            return (self.current_price - self.cost) / self.current_price * 100
+        return None
 
 
 @dataclass
@@ -119,6 +149,12 @@ class Settings:
     require_approval_for_clearance: bool = True
     require_approval_for_ad_spend: bool = True
     require_approval_for_bulk_content: bool = True
+    # ----- Price guardrails (defaults applied when an item has no specific rule) -----
+    default_min_margin_pct: int = 15  # "Never go below 15% margin"
+    default_max_discount_pct: int = 30  # "Never cut price more than 30% off current"
+    default_max_increase_pct: int = 20  # "Never raise price more than 20% above current"
+    enforce_floors: bool = True  # global on/off switch for floors
+    enforce_ceilings: bool = True
 
 
 # ---------- The store ----------
@@ -460,7 +496,75 @@ AUDIT_LOG: list[AuditEntry] = _seed_audit()
 SETTINGS: Settings = Settings()
 
 
-# ---------- KPI helpers (computed live so they react to state changes) ----------
+# ---------- Price guardrails store ----------
+
+def _seed_guardrails() -> dict[str, PriceGuardrail]:
+    rules = [
+        # Garnier — floor protects margin
+        PriceGuardrail("MERC-WFS-1127217", "Garnier Nutrisse Ultra Color Nourishing Hair Color",
+                       "💇", cost=6.20, floor=8.50, ceiling=12.00, current_price=10.00),
+        # Davidoff — tight floor
+        PriceGuardrail("PEPE-M2020", "Davidoff Cool Water Eau de Toilette for Men, 4.2 oz",
+                       "🧴", cost=22.00, floor=28.00, ceiling=45.00, current_price=35.56),
+        # Dr. Brown's — already at floor, Sage's $9.98 suggestion will be allowed
+        PriceGuardrail("FBAS-MERCFBA55143", "Dr. Brown's Natural Flow Anti-Colic Bottles",
+                       "🍼", cost=6.50, floor=8.99, ceiling=14.99, current_price=10.00),
+        # Burberry — high-end fragrance, conservative floor
+        PriceGuardrail("CPCS-WFS-BFMMTS", "Burberry For Men, Brit Eau de Toilette",
+                       "🧴", cost=22.50, floor=32.00, ceiling=45.00, current_price=36.81),
+        # Pilot G2 — floor will BLOCK Sage from going to $2.98! This is the "safety in action" moment.
+        PriceGuardrail("FBAS-PLOTSNLBG27", "Pilot G2 Premium Gel Roller Pen, Fine Point",
+                       "🖊️", cost=6.00, floor=8.99, ceiling=15.00, current_price=10.42),
+        # Minwax — floor allows the $11.74 suggestion
+        PriceGuardrail("EMRY-WFS-1367853", "Minwax Polycrylic Protective Finish, Clear Satin",
+                       "🪵", cost=7.20, floor=10.50, ceiling=18.00, current_price=13.87),
+    ]
+    return {g.sku: g for g in rules}
+
+
+GUARDRAILS: dict[str, PriceGuardrail] = _seed_guardrails()
+
+
+def _apply_guardrails_to_pricing_opps() -> None:
+    """Post-process pricing opportunities to mark changes that violate guardrails.
+
+    This is what makes the demo great: Sage WANTED to suggest $2.98 on the Pilot pen,
+    but it would violate the seller's $8.99 floor — so Sage shows it as 'skipped' with
+    a clear explanation. This builds trust.
+    """
+    for opp in OPPORTUNITIES.values():
+        if opp.category != "pricing":
+            continue
+        kept = []
+        for ch in opp.proposed_changes:
+            rule = GUARDRAILS.get(ch.sku)
+            if rule is None or rule.floor is None:
+                kept.append(ch)
+                continue
+            # Parse proposed price out of e.g. "$8.47"
+            try:
+                proposed_val = float(ch.proposed.replace("$", "").replace(",", ""))
+            except ValueError:
+                kept.append(ch)
+                continue
+            if proposed_val < rule.floor:
+                ch.skipped_reason = (
+                    f"I wanted to drop the price to {ch.proposed}, but your floor for this item is "
+                    f"${rule.floor:,.2f}. I'm leaving it alone."
+                )
+                ch.skipped_wanted = ch.proposed
+                ch.skipped_floor_or_ceiling = f"${rule.floor:,.2f} (your floor)"
+                ch.proposed = f"No change (your rule says don't drop below ${rule.floor:,.2f})"
+                ch.sku_impact_usd = 0.0
+                ch.excluded = True  # default to excluded so we don't accidentally apply
+            kept.append(ch)
+        opp.proposed_changes = kept
+
+
+_apply_guardrails_to_pricing_opps()
+
+
+# ---------- KPI helpers ----------
 
 def kpi_summary() -> dict:
     open_opps = [o for o in OPPORTUNITIES.values() if o.status == "new"]

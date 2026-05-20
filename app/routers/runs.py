@@ -14,7 +14,7 @@ async def runs_index(request: Request):
     )
     return templates.TemplateResponse(request=request, name="runs_index.html", context={
         "request": request,
-        "active_page": "runs",
+        "active_page": "sage", "sub_page": "runs",
         "recent": recent,
         "open_opps_count": kpi_summary()["open_opps"],
     })
@@ -27,7 +27,7 @@ async def view_run(request: Request, opp_id: str):
         raise HTTPException(404)
     return templates.TemplateResponse(request=request, name="run.html", context={
         "request": request,
-        "active_page": "runs",
+        "active_page": "sage", "sub_page": "runs",
         "opp": opp,
         "open_opps_count": kpi_summary()["open_opps"],
     })

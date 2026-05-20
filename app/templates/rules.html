@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Price rules · Sage{% endblock %}
+{% block content %}
+
+<div class="px-10 py-8 max-w-5xl mx-auto">
+
+  <!-- Header -->
+  <div class="flex items-start gap-4 mb-6">
+    <div class="w-12 h-12 rounded-2xl bg-wmblue-5 flex items-center justify-center text-2xl">🛡️</div>
+    <div class="flex-1">
+      <h1 class="text-3xl font-extrabold mb-1">Price rules</h1>
+      <p class="text-wmgray-130 text-lg">
+        Set the lowest and highest prices I'm allowed to set for each item. I'll <strong>never</strong> cross these — even by accident.
+      </p>
+    </div>
+  </div>
+
+  <!-- Trust banner -->
+  <div class="bg-wmgreen-10 border-l-4 border-wmgreen-100 rounded-2xl p-5 mb-6 flex items-start gap-4">
+    <div class="text-2xl">✅</div>
+    <div class="flex-1">
+      <div class="font-bold text-wmgreen-130 mb-1">Your margins are protected.</div>
+      <div class="text-sm text-wmgreen-130/90">
+        Every price change I suggest is checked against your rules first. If a change would break a rule, I'll either skip it or ask you about it — never just do it.
+      </div>
+    </div>
+  </div>
+
+  <!-- DEFAULTS -->
+  <div class="bg-white rounded-2xl border border-wmgray-30 card-shadow p-6 mb-6">
+    <h2 class="text-xl font-bold mb-1">Default rules for all items</h2>
+    <p class="text-sm text-wmgray-100 mb-5">These apply unless you set a specific rule for an item below.</p>
+
+    <form method="post" action="/rules/defaults" class="space-y-5">
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="bg-wmgray-5 rounded-xl p-4">
+          <label class="block text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-2">Never go below this margin</label>
+          <div class="flex items-center gap-2">
+            <input type="number" min="0" max="100" name="default_min_margin_pct" value="{{ s.default_min_margin_pct }}"
+                   class="w-20 border-2 border-wmgray-30 rounded-lg px-3 py-2 text-lg font-bold focus:outline-none focus:border-wmblue-100">
+            <span class="text-lg font-bold text-wmgray-130">%</span>
+          </div>
+          <div class="text-xs text-wmgray-100 mt-2">I'll never set a price that earns you less than this much over cost.</div>
+        </div>
+        <div class="bg-wmgray-5 rounded-xl p-4">
+          <label class="block text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-2">Never discount more than</label>
+          <div class="flex items-center gap-2">
+            <input type="number" min="0" max="100" name="default_max_discount_pct" value="{{ s.default_max_discount_pct }}"
+                   class="w-20 border-2 border-wmgray-30 rounded-lg px-3 py-2 text-lg font-bold focus:outline-none focus:border-wmblue-100">
+            <span class="text-lg font-bold text-wmgray-130">% off</span>
+          </div>
+          <div class="text-xs text-wmgray-100 mt-2">A safety net so I don't slash prices too aggressively.</div>
+        </div>
+        <div class="bg-wmgray-5 rounded-xl p-4">
+          <label class="block text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-2">Never raise more than</label>
+          <div class="flex items-center gap-2">
+            <input type="number" min="0" max="100" name="default_max_increase_pct" value="{{ s.default_max_increase_pct }}"
+                   class="w-20 border-2 border-wmgray-30 rounded-lg px-3 py-2 text-lg font-bold focus:outline-none focus:border-wmblue-100">
+            <span class="text-lg font-bold text-wmgray-130">% up</span>
+          </div>
+          <div class="text-xs text-wmgray-100 mt-2">Stops me from accidentally pricing items above the market.</div>
+        </div>
+      </div>
+
+      <div class="border-t border-wmgray-30 pt-4 space-y-2">
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="enforce_floors" {% if s.enforce_floors %}checked{% endif %} class="accent-wmblue-100 w-5 h-5">
+          <span class="text-sm font-semibold">Always check minimum prices before changing anything</span>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="enforce_ceilings" {% if s.enforce_ceilings %}checked{% endif %} class="accent-wmblue-100 w-5 h-5">
+          <span class="text-sm font-semibold">Always check maximum prices before changing anything</span>
+        </label>
+      </div>
+
+      <div class="flex justify-end">
+        <button type="submit" class="px-6 py-2.5 rounded-xl bg-wmblue-100 hover:bg-wmblue-110 text-white font-bold text-sm">
+          Save default rules
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- PER-ITEM RULES -->
+  <div class="bg-white rounded-2xl border border-wmgray-30 card-shadow overflow-hidden">
+    <div class="px-6 py-5 border-b border-wmgray-30 bg-wmgray-5 flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h2 class="text-xl font-bold">Item-by-item rules</h2>
+        <p class="text-sm text-wmgray-100">Set specific minimum and maximum prices for your most important items.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="text-xs font-bold px-3 py-2 rounded-lg border border-wmgray-30 bg-white hover:border-wmblue-100">📤 Upload CSV</button>
+        <button class="text-xs font-bold px-3 py-2 rounded-lg border border-wmgray-30 bg-white hover:border-wmblue-100">📥 Download all</button>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <div class="hidden md:grid grid-cols-12 gap-3 px-6 py-3 text-xs font-bold uppercase tracking-wider text-wmgray-100 border-b border-wmgray-30 bg-wmgray-5/50">
+      <div class="col-span-5">Item</div>
+      <div class="col-span-1 text-right">Current price</div>
+      <div class="col-span-2">Your cost</div>
+      <div class="col-span-2">Lowest I can set</div>
+      <div class="col-span-2">Highest I can set</div>
+    </div>
+
+    {% for r in rules %}
+      <form method="post" action="/rules/{{ r.sku }}" class="grid md:grid-cols-12 gap-3 px-6 py-4 border-b border-wmgray-30 last:border-b-0 items-center hover:bg-wmblue-5/30 transition">
+        <!-- Item -->
+        <div class="col-span-5 flex items-center gap-3 min-w-0">
+          <div class="text-3xl flex-shrink-0">{{ r.image_emoji }}</div>
+          <div class="min-w-0">
+            <div class="font-semibold text-wmgray-160 leading-snug truncate">{{ r.item_name }}</div>
+            <div class="text-xs text-wmgray-100 font-mono">{{ r.sku }}</div>
+            {% if r.margin_pct is not none %}
+              <div class="text-xs mt-0.5 {% if r.margin_pct < 15 %}text-wmred-100{% else %}text-wmgreen-130{% endif %} font-semibold">
+                Margin today: {{ "%.0f"|format(r.margin_pct) }}%
+              </div>
+            {% endif %}
+          </div>
+        </div>
+        <!-- Current price -->
+        <div class="col-span-1 text-right font-bold text-wmgray-160">${{ "%.2f"|format(r.current_price) }}</div>
+        <!-- Cost -->
+        <div class="col-span-2">
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-wmgray-100 text-sm">$</span>
+            <input type="text" name="cost" value="{{ r.cost if r.cost is not none else '' }}" placeholder="optional"
+                   class="w-full border border-wmgray-30 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:border-wmblue-100">
+          </div>
+        </div>
+        <!-- Floor -->
+        <div class="col-span-2">
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-wmgreen-130 text-sm font-bold">$</span>
+            <input type="text" name="floor" value="{{ '%.2f'|format(r.floor) if r.floor is not none else '' }}" placeholder="no minimum"
+                   class="w-full border-2 border-wmgreen-100/30 bg-wmgreen-10/30 rounded-lg pl-7 pr-3 py-2 text-sm font-bold focus:outline-none focus:border-wmgreen-100">
+          </div>
+        </div>
+        <!-- Ceiling -->
+        <div class="col-span-2 flex items-center gap-2">
+          <div class="relative flex-1">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-spark-140 text-sm font-bold">$</span>
+            <input type="text" name="ceiling" value="{{ '%.2f'|format(r.ceiling) if r.ceiling is not none else '' }}" placeholder="no maximum"
+                   class="w-full border-2 border-spark-100/40 bg-spark-5 rounded-lg pl-7 pr-3 py-2 text-sm font-bold focus:outline-none focus:border-spark-100">
+          </div>
+          <button type="submit" class="text-xs font-bold text-wmblue-100 hover:underline">Save</button>
+        </div>
+      </form>
+    {% endfor %}
+  </div>
+
+  <!-- Bulk help -->
+  <div class="mt-6 bg-wmblue-5 rounded-2xl p-5 flex items-start gap-4">
+    <div class="text-2xl">💡</div>
+    <div class="text-sm text-wmblue-130">
+      <strong>Pro tip:</strong> Have lots of items? Download the full list as a CSV, fill in your floors and ceilings in a spreadsheet, then upload it back here. I'll set rules for all of them at once.
+    </div>
+  </div>
+
+</div>
+{% endblock %}

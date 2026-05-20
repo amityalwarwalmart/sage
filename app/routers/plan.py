@@ -15,7 +15,7 @@ async def view_plan(request: Request, opp_id: str):
         raise HTTPException(404)
     return templates.TemplateResponse(request=request, name="plan.html", context={
         "request": request,
-        "active_page": "inbox",
+        "active_page": "sage", "sub_page": "inbox",
         "opp": opp,
         "open_opps_count": kpi_summary()["open_opps"],
     })
