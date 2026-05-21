@@ -4,6 +4,30 @@
 
 <div class="px-10 py-8 max-w-5xl mx-auto">
 
+  {% if not ob.completed %}
+    <!-- ============ First-time onboarding banner ============ -->
+    <div class="sage-grad rounded-3xl p-7 mb-7 card-shadow text-white">
+      <div class="flex items-start gap-5">
+        <div class="w-16 h-16 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center text-3xl flex-shrink-0">👋</div>
+        <div class="flex-1">
+          <div class="text-xs font-bold uppercase tracking-wider mb-2 text-white/80">New here?</div>
+          <h2 class="text-2xl font-extrabold mb-2">Let's set up Sage in about 30 seconds.</h2>
+          <p class="text-white/90 leading-snug mb-4">
+            I'll ask 3 quick questions to learn your preferences, then I'll scan your catalog and show you what I'd recommend.
+          </p>
+          <div class="flex gap-3 flex-wrap">
+            <a href="/onboarding" class="bg-white text-wmblue-130 font-extrabold px-6 py-3 rounded-xl hover:bg-spark-5 transition">
+              How do I set up? →
+            </a>
+            <a href="/setup-scan" class="bg-white/10 backdrop-blur text-white border border-white/30 font-bold px-6 py-3 rounded-xl hover:bg-white/20 transition">
+              Skip — just scan my shop
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
   <!-- Greeting -->
   <div class="mb-8">
     <div class="flex items-center gap-2 text-sm font-semibold text-wmgreen-130 mb-3">

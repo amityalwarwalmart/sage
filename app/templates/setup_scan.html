@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}Sage scanned your shop — Setup{% endblock %}
+{% block content %}
+
+<div class="px-6 py-5 max-w-7xl mx-auto">
+
+  <!-- ============ Top: scan-complete banner ============ -->
+  <div class="bg-white rounded-2xl border-2 border-wmgreen-100/40 p-6 mb-5 card-shadow flex items-start gap-5">
+    <div class="w-14 h-14 sage-grad rounded-2xl flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">✓</div>
+    <div class="flex-1">
+      <div class="text-xs font-bold text-wmgreen-130 uppercase tracking-wider mb-1">Scan complete · 32,121 items reviewed in 4 seconds</div>
+      <h1 class="text-2xl font-extrabold text-wmgray-160 mb-1">Here's what I found in your shop, {{ ob.goal_label|lower }}.</h1>
+      <p class="text-wmgray-100">
+        Based on your answers, I'm focusing on
+        {% for f in ob.focus_areas %}<strong>{% if f == 'pricing' %}pricing{% elif f == 'catalog' %}listings{% elif f == 'incentives' %}ads &amp; promos{% else %}search ranking{% endif %}</strong>{% if not loop.last %}, {% endif %}{% endfor %}.
+        Take a look at what I'd recommend on each side, then we can chat below to fine-tune.
+      </p>
+    </div>
+    <div class="text-right flex-shrink-0 hidden md:block">
+      <div class="text-[10px] uppercase tracking-wider text-wmgray-100 font-bold">Total opportunity</div>
+      <div class="text-3xl font-extrabold text-wmgreen-130">{{ total_value | money }}</div>
+      <div class="text-xs text-wmgray-100">next month</div>
+    </div>
+  </div>
+
+  <!-- ============ Two-column: opportunities (left) + guardrails (right) ============ -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+
+    <!-- LEFT: Opportunities I found -->
+    <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden card-shadow">
+      <div class="px-5 py-4 border-b border-wmgray-30 bg-wmblue-5 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">💡</span>
+          <div>
+            <div class="font-bold text-wmgray-160">Opportunities I found</div>
+            <div class="text-xs text-wmgray-100">{{ total_opps }} ideas worth {{ total_value | money }}</div>
+          </div>
+        </div>
+      </div>
+
+     <div class="p-5 space-y-3">
+        {% for cat, opps in opp_groups.items() %}
+          {% if opps %}
+            {% set cat_meta = {
+              'pricing': ('💰', 'Pricing'),
+              'catalog': ('📝', 'Listings'),
+              'incentives': ('🎉', 'Ads & promos'),
+              'seo': ('🔍', 'Search ranking')
+            }[cat] %}
+            <div class="border border-wmgray-30 rounded-xl overflow-hidden">
+              <!-- Category header -->
+              <div class="px-4 py-2.5 bg-wmgray-5 border-b border-wmgray-30 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-xl">{{ cat_meta[0] }}</span>
+                  <span class="font-bold text-sm text-wmgray-160">{{ cat_meta[1] }}</span>
+                </div>
+                <div class="text-right">
+                  <div class="text-sm font-bold text-wmgreen-130">+{{ group_totals[cat] | money }}</div>
+                  <div class="text-[10px] text-wmgray-100">{{ opps|length }} idea{% if opps|length != 1 %}s{% endif %}</div>
+                </div>
+              </div>
+              <!-- Items -->
+              {% for o in opps %}
+                <a href="/plan/{{ o.id }}" class="flex items-start gap-3 px-4 py-3 border-t border-wmgray-30 first:border-t-0 hover:bg-wmblue-5/40">
+                  <div class="mt-0.5">
+                    {% if o.risk_tier == 'low' %}<span class="px-2 py-0.5 text-[9px] font-bold rounded tone-easy">EASY</span>
+                    {% elif o.risk_tier == 'medium' %}<span class="px-2 py-0.5 text-[9px] font-bold rounded tone-medium">MED</span>
+                    {% else %}<span class="px-2 py-0.5 text-[9px] font-bold rounded tone-big">BIG</span>{% endif %}
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-semibold text-wmgray-160 leading-snug">{{ o.title }}</div>
+                    <div class="text-xs text-wmgray-100 mt-0.5 line-clamp-1">{{ o.one_liner_why or o.summary }}</div>
+                  </div>
+                  <div class="text-right flex-shrink-0">
+                    <div class="text-sm font-bold text-wmgreen-130">+{{ o.gmv_impact_usd | money }}</div>
+                  </div>
+                </a>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- RIGHT: Suggested guardrails -->
+    <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden card-shadow">
+      <div class="px-5 py-4 border-b border-wmgray-30 bg-wmgreen-10/40 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">🛡️</span>
+          <div>
+            <div class="font-bold text-wmgray-160">Your safety net</div>
+            <div class="text-xs text-wmgray-100">Based on your answers and your catalog</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-5 space-y-3">
+
+        <!-- Margin floor -->
+        <div class="border border-wmgray-30 rounded-xl p-4">
+          <div class="flex items-start gap-3">
+            <div class="text-2xl">📉</div>
+            <div class="flex-1">
+              <div class="font-bold text-wmgray-160 mb-1">Minimum margin: {{ settings.default_min_margin_pct }}%</div>
+              <div class="text-xs text-wmgray-100 leading-snug">I'll never set a price that earns you less than {{ settings.default_min_margin_pct }}% over your cost. Whatever I'd suggest gets checked against this rule first.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Per-item floors -->
+        <div class="border border-wmgray-30 rounded-xl p-4">
+          <div class="flex items-start gap-3">
+            <div class="text-2xl">🏷️</div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between mb-1 gap-2">
+                <div class="font-bold text-wmgray-160">Item-specific price floors</div>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-wmgreen-10 text-wmgreen-130">{{ suggested_floors }} ready to apply</span>
+              </div>
+              <div class="text-xs text-wmgray-100 leading-snug mb-2">I noticed {{ suggested_floors }} of your hottest items need tighter price floors than the default. I drafted them for you.</div>
+              <a href="/rules" class="text-xs font-bold text-wmblue-100 hover:underline">Review the {{ suggested_floors }} floors →</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Autonomy -->
+        <div class="border border-wmgray-30 rounded-xl p-4">
+          <div class="flex items-start gap-3">
+            <div class="text-2xl">🤝</div>
+            <div class="flex-1">
+              <div class="font-bold text-wmgray-160 mb-1">My autonomy: {{ ob.autonomy_label|lower }}</div>
+              <div class="text-xs text-wmgray-100 leading-snug">
+                {% if ob.autonomy == 'suggest_only' %}I'll never make a change without you approving it first.
+                {% elif ob.autonomy == 'be_proactive' %}I can act on opportunities up to <strong>$2,000</strong> on my own, as long as they fit your guardrails.
+                {% else %}I can fix small things on my own (up to <strong>$500</strong>) — anything bigger waits for you.
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Always-ask -->
+        <div class="border border-wmgray-30 rounded-xl p-4">
+          <div class="flex items-start gap-3">
+            <div class="text-2xl">🛑</div>
+            <div class="flex-1">
+              <div class="font-bold text-wmgray-160 mb-1">I'll <em>always</em> ask before…</div>
+              <div class="text-xs text-wmgray-100 leading-snug">
+                Running a big sale, spending ad money, or changing wording on more than 50 listings at once. Even when you trust me with small stuff, the big calls stay with you.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <a href="/settings" class="block text-center text-xs font-bold text-wmblue-100 hover:underline pt-1">Open full preferences →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Continuous chat strip ============ -->
+  <div class="bg-white rounded-2xl border-2 border-wmblue-100/30 card-shadow overflow-hidden">
+
+    <div class="px-5 py-3 border-b border-wmgray-30 sage-grad-soft flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-wmgreen-100 pulse-dot"></span>
+        <div class="font-bold text-sm text-wmgray-160">Chat with Sage</div>
+      </div>
+      <div class="text-[11px] text-wmgray-100">Ask a question or approve actions right here</div>
+    </div>
+
+    <div id="scan-chat-thread" class="max-h-[280px] overflow-y-auto px-5 py-4 space-y-3 scrollbar-thin text-sm">
+      <!-- Sage's opening pitch with action buttons -->
+      <div class="flex gap-2">
+        <div class="w-7 h-7 sage-grad rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0">S</div>
+        <div class="bg-wmgray-5 rounded-2xl rounded-tl-md px-3.5 py-2.5 max-w-[85%] leading-snug">
+          I scanned 32,121 items and found {{ total_opps }} ideas worth about <strong class="text-wmgreen-130">{{ total_value | money }}</strong> in extra sales next month. I also drafted {{ suggested_floors }} price floors so I never accidentally hurt your margins.
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <button hx-post="/setup-scan/action" hx-vals='{"action":"approve_all"}' hx-target="#scan-chat-thread" hx-swap="beforeend"
+                    class="bg-wmblue-100 hover:bg-wmblue-110 text-white text-xs font-bold rounded-lg px-3 py-1.5">
+              ✓ Add all to my to-do list
+            </button>
+            <button hx-post="/setup-scan/action" hx-vals='{"action":"explain_seo"}' hx-target="#scan-chat-thread" hx-swap="beforeend"
+                    class="bg-white border border-wmgray-30 hover:border-wmblue-100 text-wmgray-130 text-xs font-bold rounded-lg px-3 py-1.5">
+              Tell me about SEO
+            </button>
+            <button hx-post="/setup-scan/action" hx-vals='{"action":"tighten_floor"}' hx-target="#scan-chat-thread" hx-swap="beforeend"
+                    class="bg-white border border-wmgray-30 hover:border-wmblue-100 text-wmgray-130 text-xs font-bold rounded-lg px-3 py-1.5">
+              Tighten my margin floor
+            </button>
+            <button hx-post="/setup-scan/action" hx-vals='{"action":"go_workspace"}' hx-target="#scan-chat-thread" hx-swap="beforeend"
+                    class="bg-white border border-wmgray-30 hover:border-wmblue-100 text-wmgray-130 text-xs font-bold rounded-lg px-3 py-1.5">
+              Skip — take me to my workspace
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <form hx-post="/setup-scan/chat" hx-target="#scan-chat-thread" hx-swap="beforeend"
+          class="border-t border-wmgray-30 p-3 bg-wmgray-5 flex gap-2 items-center"
+          hx-on::after-request="this.reset(); document.getElementById('scan-chat-thread').scrollTop = document.getElementById('scan-chat-thread').scrollHeight;">
+      <input name="message" required placeholder="Ask Sage anything about these findings…"
+             class="flex-1 border border-wmgray-30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-wmblue-100 focus:sage-glow">
+      <button type="submit" class="bg-wmblue-100 hover:bg-wmblue-110 text-white rounded-xl px-5 py-2.5 text-sm font-bold flex-shrink-0">
+        Send
+      </button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

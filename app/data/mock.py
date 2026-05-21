@@ -721,6 +721,67 @@ def _seed_workspace_tiles() -> list[WorkspaceTile]:
 WORKSPACE_TILES: list[WorkspaceTile] = _seed_workspace_tiles()
 
 
+# ---------- Onboarding state ----------
+
+GoalKey = Literal["grow", "save_time", "both"]
+AutonomyKey = Literal["suggest_only", "handle_small", "be_proactive"]
+FocusKey = Literal["pricing", "catalog", "incentives", "seo"]
+
+
+@dataclass
+class OnboardingResponses:
+    goal: GoalKey | None = None
+    autonomy: AutonomyKey | None = None
+    min_margin_pct: int = 15
+    focus_areas: list[FocusKey] = field(default_factory=lambda: ["pricing", "catalog", "incentives", "seo"])
+    completed: bool = False
+    current_step: int = 1  # 1, 2, 3 (3 steps)
+
+    @property
+    def progress_pct(self) -> int:
+        if self.completed:
+            return 100
+        return int(((self.current_step - 1) / 3) * 100)
+
+    @property
+    def goal_label(self) -> str:
+        return {
+            "grow": "Grow my revenue",
+            "save_time": "Save me time",
+            "both": "Both — grow revenue AND save time",
+        }.get(self.goal or "both", "Both")
+
+    @property
+    def autonomy_label(self) -> str:
+        return {
+            "suggest_only": "Just suggest — I'll decide everything",
+            "handle_small": "Handle small stuff yourself, ask me about bigger things",
+            "be_proactive": "Be proactive — take care of things within my rules",
+        }.get(self.autonomy or "handle_small", "Handle small stuff")
+
+
+ONBOARDING: OnboardingResponses = OnboardingResponses()
+
+
+def apply_onboarding_to_settings() -> None:
+    """Translate friendly onboarding answers into the underlying SETTINGS object."""
+    if ONBOARDING.autonomy == "suggest_only":
+        SETTINGS.auto_approve_enabled = False
+        SETTINGS.auto_approve_max_usd = 0.0
+    elif ONBOARDING.autonomy == "handle_small":
+        SETTINGS.auto_approve_enabled = True
+        SETTINGS.auto_approve_max_usd = 500.0
+        SETTINGS.auto_approve_min_confidence = 85
+    elif ONBOARDING.autonomy == "be_proactive":
+        SETTINGS.auto_approve_enabled = True
+        SETTINGS.auto_approve_max_usd = 2000.0
+        SETTINGS.auto_approve_min_confidence = 75
+    SETTINGS.default_min_margin_pct = ONBOARDING.min_margin_pct
+    # Pause anything the seller didn't pick
+    all_cats: list[Category] = ["pricing", "catalog", "incentives", "seo"]
+    SETTINGS.paused_capabilities = [c for c in all_cats if c not in ONBOARDING.focus_areas]
+
+
 # ---------- KPI helpers ----------
 
 def kpi_summary() -> dict:

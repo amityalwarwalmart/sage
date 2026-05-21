@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Welcome to Sage{% endblock %}
+{% block content %}
+
+<div class="min-h-full sage-grad-soft flex items-start justify-center px-6 py-12">
+  <div class="w-full max-w-2xl">
+
+    <!-- Progress bar + step indicator -->
+    <div class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 sage-grad rounded-2xl flex items-center justify-center text-white font-bold card-shadow">S</div>
+        <div>
+          <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider">Welcome to Sage</div>
+          <div class="text-sm font-semibold text-wmgray-160">Quick setup · about 30 seconds</div>
+        </div>
+      </div>
+      <div class="text-sm font-bold text-wmgray-100">Step {{ step }} of {{ total_steps }}</div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="h-2 bg-white rounded-full overflow-hidden card-shadow mb-7">
+      <div class="h-full sage-grad transition-all duration-500" style="width: {{ ((step / total_steps) * 100)|round }}%"></div>
+    </div>
+
+    <!-- Card -->
+    <div class="bg-white rounded-3xl card-shadow p-10 slide-up">
+
+      {% if step == 1 %}
+        <div class="text-center mb-7">
+          <div class="text-5xl mb-3">👋</div>
+          <h1 class="text-3xl font-extrabold text-wmgray-160 mb-2">Hi! What can I help with most?</h1>
+          <p class="text-wmgray-100">Pick one and I'll tailor what I work on. You can change this anytime.</p>
+        </div>
+
+        <form method="post" action="/onboarding/1" class="space-y-3">
+          {% for val, icon, title, desc in [
+            ('grow', '📈', 'Grow my revenue', 'Find me more sales — focus on Buy Box, ads, search ranking'),
+            ('save_time', '⏰', 'Save me time', 'Handle the busywork — content fixes, small price tweaks, restocks'),
+            ('both', '✨', 'Both — grow AND save me time', "I'll prioritize for both. (Most folks pick this.)")
+          ] %}
+            <label class="ob-option {% if (ob.goal or 'both') == val %}is-selected{% endif %} block cursor-pointer border-2 border-wmgray-30 rounded-2xl p-5 hover:border-wmblue-100 transition">
+              <input type="radio" name="goal" value="{{ val }}" {% if (ob.goal or 'both') == val %}checked{% endif %} class="hidden">
+              <div class="flex items-center gap-4">
+                <div class="text-3xl">{{ icon }}</div>
+                <div class="flex-1">
+                  <div class="font-bold text-lg text-wmgray-160">{{ title }}</div>
+                  <div class="text-sm text-wmgray-100 mt-0.5">{{ desc }}</div>
+                </div>
+                <div class="ob-radio w-6 h-6 rounded-full border-2 border-wmgray-50 flex items-center justify-center flex-shrink-0"></div>
+              </div>
+            </label>
+          {% endfor %}
+
+          <div class="flex justify-end pt-4">
+            <button type="submit" class="px-8 py-3.5 rounded-2xl bg-wmblue-100 hover:bg-wmblue-110 text-white font-extrabold">
+              Continue →
+            </button>
+          </div>
+        </form>
+
+      {% elif step == 2 %}
+        <div class="text-center mb-7">
+          <div class="text-5xl mb-3">🤝</div>
+          <h1 class="text-3xl font-extrabold text-wmgray-160 mb-2">How hands-on should I be?</h1>
+          <p class="text-wmgray-100">Don't worry — for big things (like clearance, ad spend, account changes) I'll <em>always</em> ask first.</p>
+        </div>
+
+        <form method="post" action="/onboarding/2" class="space-y-3">
+          {% for val, icon, title, desc, tag, tagcolor in [
+            ('suggest_only', '🙋', 'Just suggest things — I want full control', "I'll never make a change without your okay. Even tiny ones.", "Most cautious", "bg-wmgray-10 text-wmgray-130"),
+            ('handle_small', '🛟', 'Handle the small stuff for me', "I'll fix little things on my own (under $500). I'll ask you about anything bigger.", "Recommended ⭐", "bg-spark-100 text-spark-140"),
+            ('be_proactive', '🚀', 'Be proactive — take care of things within my rules', "I can act on bigger things (up to $2,000) as long as it fits your guardrails.", "Boldest", "bg-wmblue-100 text-white")
+          ] %}
+            <label class="ob-option {% if (ob.autonomy or 'handle_small') == val %}is-selected{% endif %} block cursor-pointer border-2 border-wmgray-30 rounded-2xl p-5 hover:border-wmblue-100 transition">
+              <input type="radio" name="autonomy" value="{{ val }}" {% if (ob.autonomy or 'handle_small') == val %}checked{% endif %} class="hidden">
+              <div class="flex items-start gap-4">
+                <div class="text-3xl mt-0.5">{{ icon }}</div>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-1 flex-wrap">
+                    <div class="font-bold text-lg text-wmgray-160">{{ title }}</div>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full font-bold {{ tagcolor }}">{{ tag }}</span>
+                  </div>
+                  <div class="text-sm text-wmgray-100">{{ desc }}</div>
+                </div>
+                <div class="ob-radio w-6 h-6 rounded-full border-2 border-wmgray-50 flex items-center justify-center flex-shrink-0 mt-1"></div>
+              </div>
+            </label>
+          {% endfor %}
+
+          <div class="flex justify-between items-center pt-4">
+            <a href="/onboarding/1" class="text-sm font-semibold text-wmgray-100 hover:text-wmgray-130">← Back</a>
+            <button type="submit" class="px-8 py-3.5 rounded-2xl bg-wmblue-100 hover:bg-wmblue-110 text-white font-extrabold">
+              Continue →
+            </button>
+          </div>
+        </form>
+
+      {% elif step == 3 %}
+        <div class="text-center mb-7">
+          <div class="text-5xl mb-3">🛡️</div>
+          <h1 class="text-3xl font-extrabold text-wmgray-160 mb-2">Last one — your safety net</h1>
+          <p class="text-wmgray-100">A couple of guardrails so I never accidentally hurt your margins.</p>
+        </div>
+
+        <form method="post" action="/onboarding/3" class="space-y-6">
+
+          <div>
+            <label class="font-bold text-wmgray-160 block mb-3">Never set a price that earns me less than…</label>
+            <div class="grid grid-cols-4 gap-3">
+              {% for pct, tag in [(10, 'Aggressive'), (15, 'Recommended ⭐'), (20, 'Safer'), (25, 'Most safe')] %}
+                <label class="ob-option {% if ob.min_margin_pct == pct %}is-selected{% endif %} block cursor-pointer border-2 border-wmgray-30 rounded-xl p-3 text-center hover:border-wmblue-100 transition">
+                  <input type="radio" name="min_margin_pct" value="{{ pct }}" {% if ob.min_margin_pct == pct %}checked{% endif %} class="hidden">
+                  <div class="text-2xl font-extrabold text-wmgray-160">{{ pct }}%</div>
+                  <div class="text-[10px] font-bold text-wmgray-100 mt-1">{{ tag }}</div>
+                </label>
+              {% endfor %}
+            </div>
+            <div class="text-xs text-wmgray-100 mt-2">You can fine-tune per-item rules anytime in <strong>Price rules</strong>.</div>
+          </div>
+
+          <div>
+            <label class="font-bold text-wmgray-160 block mb-2">What should I help with? <span class="text-xs text-wmgray-100 font-normal">(pick all that apply)</span></label>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {% for val, icon, title in [('pricing','💰','Pricing'),('catalog','📝','Listings'),('incentives','🎉','Ads & promos'),('seo','🔍','Search ranking')] %}
+                <label class="ob-check {% if val in ob.focus_areas %}is-selected{% endif %} border-2 border-wmgray-30 rounded-xl p-4 cursor-pointer text-center hover:border-wmblue-100 transition block">
+                  <input type="checkbox" name="focus_areas" value="{{ val }}" {% if val in ob.focus_areas %}checked{% endif %} class="hidden">
+                  <div class="text-2xl mb-1">{{ icon }}</div>
+                  <div class="text-sm font-bold text-wmgray-160">{{ title }}</div>
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center pt-4">
+            <a href="/onboarding/2" class="text-sm font-semibold text-wmgray-100 hover:text-wmgray-130">← Back</a>
+            <button type="submit" class="px-8 py-3.5 rounded-2xl bg-wmblue-100 hover:bg-wmblue-110 text-white font-extrabold">
+              Let me at your catalog! ✨
+            </button>
+          </div>
+        </form>
+      {% endif %}
+    </div>
+
+    {% if step == 1 %}
+      <div class="text-center mt-5">
+        <a href="/setup-scan" class="text-xs text-wmgray-100 hover:text-wmgray-130 underline">Skip for now and use defaults</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+  .ob-option.is-selected, .ob-check.is-selected { border-color: #0053e2 !important; background: #e6efff; }
+  .ob-option.is-selected .ob-radio { border-color: #0053e2; background: #0053e2; }
+  .ob-option.is-selected .ob-radio::after { content: ''; width: 8px; height: 8px; background: white; border-radius: 50%; display: block; }
+</style>
+
+<script>
+  document.querySelectorAll('label.ob-option').forEach(label => {
+    label.addEventListener('click', (e) => {
+      const input = label.querySelector('input');
+      if (!input) return;
+      if (input.type === 'radio') {
+        document.querySelectorAll(`input[name="${input.name}"]`).forEach(i => i.closest('label').classList.remove('is-selected'));
+        label.classList.add('is-selected');
+        input.checked = true;
+      }
+    });
+  });
+  document.querySelectorAll('label.ob-check').forEach(label => {
+    label.addEventListener('click', (e) => {
+      const input = label.querySelector('input');
+      if (!input) return;
+      // Let the native checkbox toggle first, then mirror state
+      setTimeout(() => label.classList.toggle('is-selected', input.checked), 0);
+    });
+  });
+</script>
+
+{% endblock %}
