@@ -1,0 +1,254 @@
+h1. Walmart Seller Center — Action Inventory & Risk Classification for AI Automation
+
+{info:title=About this document}
+This page catalogs the seller-facing actions in Walmart Seller Center and classifies each one by risk for autonomous execution by *Sage*, the new seller-assistant AI agent. Use it to define Sage's autonomy scope, opt-in defaults, and human-in-the-loop policies.
+
+*Source*: Compiled from a walkthrough of [Marketplace Learn|https://marketplacelearn.walmart.com/guides] (the authoritative Seller Center documentation portal, whose IA mirrors the in-app left navigation), supplemented with product knowledge. Owner partner context: *100009*. Live UI was not entered (SSO + MFA blocked autonomous login — see appendix).
+{info}
+
+h2. Risk rubric
+
+|| Tier || When it applies || Default policy for Sage ||
+| {status:colour=Green|title=LOW|subtle=false} | Reversible in one click; no / minor customer-facing impact; < $50 equivalent financial impact | *Autonomous* — Sage acts, then logs the action |
+| {status:colour=Yellow|title=MEDIUM|subtle=false} | Reversible with moderate effort; some customer-facing impact; $50–$5,000 financial impact | *Opt-in* — Sage acts only if the seller has enabled the category in preferences (with bounds) |
+| {status:colour=Red|title=HIGH|subtle=false} | Irreversible / cascading; significant brand, customer, legal, or account-level impact; > $5,000 financial impact | *Human-in-the-loop* — Sage drafts and requests explicit approval; never executes alone |
+
+{tip}When in doubt, escalate one tier. A misclassified LOW that should have been MEDIUM erodes trust faster than the inverse.{tip}
+
+----
+
+h2. Summary
+
+|| Metric || Count ||
+| *Total distinct actions cataloged* | 68 |
+| {status:colour=Green|title=LOW} | 17 |
+| {status:colour=Yellow|title=MEDIUM} | 28 |
+| {status:colour=Red|title=HIGH} | 23 |
+
+|| Top-level area || # Actions || Low || Medium || High ||
+| Home / Dashboard | 3 | 2 | 1 | 0 |
+| Catalog (Items) | 9 | 2 | 5 | 2 |
+| Pricing (incl. Repricer, Promotions, Deals, Incentives) | 10 | 1 | 6 | 3 |
+| Orders | 7 | 1 | 2 | 4 |
+| Returns & Customer Care | 6 | 1 | 1 | 4 |
+| WFS (Walmart Fulfillment Services) | 8 | 3 | 3 | 2 |
+| Seller Fulfillment (shipping settings) | 5 | 1 | 2 | 2 |
+| Payments & Billing | 5 | 1 | 1 | 3 |
+| Performance & Policies | 4 | 0 | 1 | 3 |
+| Analytics & Reports | 3 | 3 | 0 | 0 |
+| Growth Opportunities | 4 | 1 | 3 | 0 |
+| Advertising (Walmart Connect) | 5 | 1 | 3 | 1 |
+| Apps / API & Settings / Profile | 4 | 0 | 0 | 4 |
+
+----
+
+h2. 1. Home / Dashboard
+
+|| Action || Location || Description || Risk || Reversibility || Cust. Impact || Financial || Reasoning ||
+| Dismiss / snooze a dashboard alert card | Home → Alerts widget | Hide a non-actionable insight card from the home feed | {status:colour=Green|title=LOW} | Easy | No | None | Pure UI state; reappears on next refresh cycle if still relevant. |
+| Mark a "to-do" task complete | Home → To-do list | Check off a recommended onboarding / growth task | {status:colour=Green|title=LOW} | Easy | No | None | Local state only; no downstream commit. |
+| Acknowledge a banner notification (e.g., policy update) | Home top banner | Confirm reading of a policy / outage notice | {status:colour=Yellow|title=MEDIUM} | Hard (audit trail) | No | None | Acknowledgement is logged for compliance — Sage should surface, not auto-ack. |
+
+----
+
+h2. 2. Catalog — Items
+
+|| Action || Location || Description || Risk || Reversibility || Cust. Impact || Financial || Reasoning ||
+| Fill missing non-content attributes (e.g., shelf-description, bullet point, key feature) using existing approved data | Catalog → Items → Edit → Item content | Auto-complete optional product attributes from the seller's own attribute library or existing variant siblings | {status:colour=Green|title=LOW} | Easy (revert single attribute) | Minor | None | Pure enrichment from data the seller already owns; no new claims about the product. |
+| Update item attribute (single item, single field) | Catalog → Items → Edit item | Change a title, description, image, attribute, or bullet on one SKU | {status:colour=Yellow|title=MEDIUM} | Moderate (re-edit) | Yes (PDP) | None | Customer-visible content change; reviewable via content history. |
+| Bulk update item content (spec/feed upload) | Catalog → Items → Bulk operations → "Update item content in bulk" | Upload Excel/CSV/feed to update many SKUs' content at once | {status:colour=Yellow|title=MEDIUM} | Moderate (revert via prior feed) | Yes (PDP) | None | Scale amplifies risk; should be capped per run + dry-run preview required. |
+| Update SKU IDs in bulk | Catalog → Items → Bulk → "Update SKU IDs in bulk" | Replace internal SKU identifiers across many items | {status:colour=Yellow|title=MEDIUM} | Moderate | No | Small (reporting reconciliation) | Internal-only IDs but breaks downstream ERP/reporting joins. |
+| Update / replace a product ID (GTIN/UPC/ISBN) | Catalog → Items → Edit → Product ID | Change the GTIN of an existing listing | {status:colour=Red|title=HIGH} | Hard (catalog match) | Yes | Moderate | Wrong GTIN merges with the wrong catalog item; brand & buybox impact. |
+| Delete an item (single) | Catalog → Items → row action → "Delete item" | Remove a listing from the catalog | {status:colour=Red|title=HIGH} | Hard (must recreate; loses reviews) | Yes | Moderate | Customer history, reviews, and ranking are lost; functionally irreversible. |
+| Bulk delete items | Catalog → Items → Bulk → "Delete items in bulk" | Remove many listings via upload | {status:colour=Red|title=HIGH} | Hard | Yes | Moderate–Large | Same as single delete, magnified. Never autonomous. |
+| Retire / un-retire an item | Catalog → Items → row action → "Retire" / "Reactivate" | Temporarily remove an item from sale without deleting | {status:colour=Yellow|title=MEDIUM} | Easy (reactivate) | Yes | Moderate | Reversible but immediately drops the SKU offline — must respect open-order constraints. |
+| Manage / merge duplicate listings | Catalog → Items → "Manage duplicate listings" | Consolidate duplicate SKUs to one canonical listing | {status:colour=Yellow|title=MEDIUM} | Moderate | Yes (URL changes) | Small | Affects PDP URLs and historical reviews; needs preview confirmation. |
+
+----
+
+h2. 3. Pricing (Update Price, Repricer / Automate Pricing, Incentives, Promotions, Deals, Discounts)
+
+|| Action || Location || Description || Risk || Reversibility || Cust. Impact || Financial || Reasoning ||
+| Refresh / restage a draft price (no submit) | Pricing → Update prices → Draft | Save a tentative price change without publishing | {status:colour=Green|title=LOW} | Easy | No | None | Draft never reaches the customer; staging only. |
+| Apply small price tweak within seller-set floor/ceiling (single SKU) | Pricing → Update price individually | Adjust price by ≤ seller-configured % within guardrails | {status:colour=Yellow|title=MEDIUM} | Easy | Yes | Small | Bounded by seller policy; must respect MAP and Buy Box health. |
+| Bulk update price (feed/template upload) | Pricing → "Update price in bulk" | Apply price changes to many SKUs via Excel/feed | {status:colour=Yellow|title=MEDIUM} | Moderate | Yes | Moderate–Large | Cap on % moved per run + dry-run required; never below floor. |
+| Create a Repricer (Automate Pricing) strategy | Pricing → Automate pricing → "Repricer: Create a strategy" | Define rule (Match competitive, Adjust against competitive, Don't compete, Compare-only) | {status:colour=Yellow|title=MEDIUM} | Moderate | Yes (when assigned) | Moderate | Strategy itself is dormant until assigned; require seller approval of the rule template. |
+| Assign / unassign Repricer strategy to items | Pricing → Automate pricing → "Repricer: Manage a strategy" | Add/remove SKUs from an active automated pricing rule | {status:colour=Yellow|title=MEDIUM} | Easy | Yes | Moderate | Allowed within seller-defined assortment & floors. |
+| Accept Automate Pricing Terms & Conditions | Pricing → Automate pricing first-run dialog | Authorize Walmart to adjust prices on the seller's behalf | {status:colour=Red|title=HIGH} | Hard | Yes | Large | Legal authorization; must be a deliberate seller act. |
+| Set up promotional pricing (Promotions dashboard / template) | Growth → Promotions / Pricing → Promotions | Create a sale price, comparison "was" price, or event price | {status:colour=Yellow|title=MEDIUM} | Easy (end promo) | Yes | Moderate | Direct customer-facing discount; needs bounds + duration cap. |
+| Enroll items in a Walmart Deal / Featured Deal | Growth → Deals / Promotions → "Enroll in deal" | Submit SKUs to a Walmart-curated deal event (e.g., Rollback, Flash Pick) | {status:colour=Red|title=HIGH} | Hard (event-bound) | Yes | Large | Locks pricing & inventory commitment for the event window; brand-event impact. |
+| Apply Clearance pricing (large markdown) | Pricing → Markdowns / Clearance flag | Significant permanent price drop to liquidate inventory | {status:colour=Red|title=HIGH} | Hard | Yes | Large | Margin destruction & signals inventory issues; always human. |
+| Configure / accept Price Incentive (Referral-fee discount) | Pricing → Price Incentives → "Accept" | Opt into Walmart program offering referral-fee rebates for hitting price targets | {status:colour=Yellow|title=MEDIUM} | Moderate (opt out) | Yes (price) | Moderate | Commits to price-competitiveness targets; should be opt-in with cap. |
+
+----
+
+h2. 4. Orders
+
+|| Action || Location || Description || Risk || Reversibility || Cust. Impact || Financial || Reasoning ||
+| View / export orders list | Orders → All orders → Download | Pull an orders CSV for offline analysis | {status:colour=Green|title=LOW} | Easy | No | None | Read-only. |
+| Acknowledge new order (mark as received) | Orders → Order detail → "Acknowledge" | Confirm receipt to start the fulfillment SLA clock | {status:colour=Yellow|title=MEDIUM} | Hard | Yes (timer) | Small | Starts SLA; if mis-timed triggers performance dings. Auto OK if connected to OMS. |
+| Generate / purchase shipping label (Ship with Walmart or carrier) | Orders → Order detail → "Buy shipping label" | Buy postage via Walmart-negotiated rates or external carrier | {status:colour=Yellow|title=MEDIUM} | Moderate (void & refund) | Yes | Small–Moderate | Real $$ charged; capped per-label price; should match order weight. |
+| Mark order shipped + add tracking | Orders → Order detail → "Mark shipped" | Submit tracking number and ship confirmation | {status:colour=Red|title=HIGH} | Hard | Yes | Moderate | False ship-confirms create chargebacks, A-to-Z claims, suspension risk. |
+| Cancel order line (seller-initiated) | Orders → Order detail → "Cancel order" | Cancel item(s) before fulfillment | {status:colour=Red|title=HIGH} | Impossible | Yes | Moderate | Counts against seller cancel rate; trust-affecting; always human. |
+| Update estimated ship / delivery date | Orders → Order detail → "Update ship date" | Push out the customer-promised delivery date | {status:colour=Red|title=HIGH} | Hard | Yes | Moderate | Breaks the customer promise that drove purchase; treated as defect. |
+| Adjust order address (limited) | Orders → Order detail → "Edit address" | Correct typos in the ship-to address | {status:colour=Yellow|title=MEDIUM} | Moderate | Yes | Small | Required occasionally; constrained to carrier-validated corrections only. |
+
+----
+
+h2. 5. Returns & Customer Care
+
+|| Action || Location || Description || Risk || Reversibility || Cust. Impact || Financial || Reasoning ||
+| Reply to a customer Q&A on a PDP | Customer Care → Q&A | Post a public answer to a buyer question on the listing | {status:colour=Yellow|title=MEDIUM} | Moderate (edit/delete) | Yes (public) | None | Public brand voice; tone & accuracy matter — Sage should draft, seller approves. |
+| Send a templated customer message (no commitment) | Customer Care → Messages → "Reply" with template | Reply to a customer with a pre-approved template (e.g., "your order shipped") | {status:colour=Green|title=LOW} | Hard (sent) | Yes | None | Templates pre-vetted by seller; informational only. |
+| Issue a standard refund | Orders → Returns → "Issue standard refund" | Refund the full price + tax + shipping on a returned item | {status:colour=Red|title=HIGH} | Impossible (debit to seller) | Yes | Moderate | Direct money out the door; can't claw back; CS-policy adherent. |
+| Issue an adjustment / non-standard refund (concession) | Orders → Returns → "Issue adjustment" | Partial / goodwill refund not tied to a return | {status:colour=Red|title=HIGH} | Impossible | Yes | Moderate–Large | Discretionary spend; precedent-setting; human approval required. |
+| Approve / deny a return request | Orders → Returns → row action | Accept or reject a customer's return | {status:colour=Red|title=HIGH} | Hard | Yes | Moderate | Policy + trust impact; denial can trigger escalations / chargebacks. |
+| Add / edit Keep-It rules or Replacement rules | Returns → Settings → "Add Keep It Rules" / "Add Replacement rules" | Define when low-value items are refunded without a return, or replaced | {status:colour=Yellow|title=MEDIUM} | Moderate | Yes | Moderate | Sets policy; bounded $ thresholds; opt-in is OK. |
+
+----
+
+h2. 6. WFS — Walmart Fulfillment Services
+
+|| Action || Location || Description || Risk || Reversibility || Cust. Impact || Financial || Reasoning ||
+| Calculate estimated WFS revenue / fees for an item | WFS → Growth → "Calculate estimated revenue for WFS items" | Use the WFS calculator to model fees | {status:colour=Green|title=LOW} | Easy | No | None | Read-only modeling tool. |
+| Monitor WFS sales (dashboard view) | WFS → Growth → "Monitor WFS sales" | View sales velocity and inventory health for WFS items | {status:colour=Green|title=LOW} | Easy | No | None | Read-only. |
+| Refresh / sync WFS inventory counts from seller system | WFS → Inventory management | Push current on-hand counts to WFS | {status:colour=Green|title=LOW} | Easy | No | None | Telemetry-style; new counts overwrite. |
+| Convert a seller-fulfilled item to WFS | WFS → Growth → "Convert seller-fulfilled items to WFS" | Enroll an existing SKU into WFS fulfillment | {status:colour=Yellow|title=MEDIUM} | Moderate | Yes (shipping speed) | Moderate | Triggers inbound shipment workflow + storage fees. |
+| Create an inbound shipping plan to WFS | WFS → "Shipping to WFS" → Create plan | Define what units ship to which fulfillment center | {status:colour=Yellow|title=MEDIUM} | Moderate | No | Moderate | Commits transportation cost + FC capacity allocation. |
+| Distribute inventory yourself (multi-FC ship plan) | WFS → "Shipping plans: Distribute inventory yourself" | Manually split a shipment across FCs | {status:colour=Yellow|title=MEDIUM} | Moderate | No | Moderate | Cost optimization; bounded; opt-in OK. |
+| Request inventory removal / disposal from WFS | WFS → Inventory → "Create removal order" | Pull units back from WFS or have them destroyed | {status:colour=Red|title=HIGH} | Impossible (if disposal) | No | Moderate–Large | Disposal is irreversible & costly; trust-affecting if accidental. |
+| Submit WFS compliance docs (SDS, hazmat, batteries, pesticides lab test) | WFS → Policies & standards → relevant page | Upload safety / regulatory documentation | {status:colour=Red|title=HIGH} | Hard | No | None directly | Legal/regulatory commitment; mis-classification can suspend selling. |
+
+----
+
+h2. 7. Seller Fulfillment Services (Shipping Settings)
+
+|| Action || Location || Description || Risk || Reversibility || Cust. Impact || Financial || Reasoning ||
+| Toggle Simplified Shipping Settings | Settings → Shipping → Simplified Shipping Settings | Enable / disable the simplified shipping mode | {status:colour=Green|title=LOW} | Easy | Yes (rates) | Small | Toggling can be done at any time; preview before commit. |
+| Create / edit a Shipping Template | Settings → Shipping → Shipping Templates | Define a named rate/region/lag-time bundle | {status:colour=Yellow|title=MEDIUM} | Easy (delete) | Yes | Moderate | Template applies to many items once published; preview first. |
+| Update item lag time | Settings → Shipping → row | Change days between order and ship for an item / SKU group | {status:colour=Yellow|title=MEDIUM} | Easy | Yes | Small | Affects delivery promise; respect bounds. |
+| Change a shipping method's rate / speed offered | Settings → Shipping → "Shipping methods" | Add/remove or reprice 1-day, 2-day, etc. shipping offers | {status:colour=Red|title=HIGH} | Moderate | Yes | Moderate–Large | Directly changes customer-facing delivery promise; brand impact. |
+| Disable Ship with Walmart (drop SWW carrier) | Settings → Shipping → "Ship with Walmart" → Disable | Stop using Walmart-negotiated postage | {status:colour=Red|title=HIGH} | Moderate | Yes | Moderate | Affects rates & speeds globally; account-level config. |
+
+----
+
+h2. 8. Payments & Billing
+
+|| Action || Location || Description || Risk || Reversibility || Cust. Impact || Financial || Reasoning ||
+| View / download payment statement | Payments → Statements → "Download" | Export a payout statement | {status:colour=Green|title=LOW} | Easy | No | None | Read-only. |
+| Add a billing method (credit card) | Settings → Billing → "Add a credit card" | Add a card for Walmart-charged fees (ads, WFS) | {status:colour=Yellow|title=MEDIUM} | Easy (remove) | No | Moderate | Enables Walmart to draft fees from the card; needs explicit consent. |
+| Add ACH (US bank) for billing | Settings → Billing → "Add ACH (US bank)" | Add bank for fee debits | {status:colour=Red|title=HIGH} | Hard (verification) | No | Large | Bank-account-level commitment; never autonomous. |
+| Set up / change PayPal payout method | Settings → Payments → "Set up PayPal account" | Configure where payouts land | {status:colour=Red|title=HIGH} | Hard | No | Large | Payout redirection = #1 fraud vector for marketplaces. Always human. |
+| Retrieve / download Form 1099-K | Taxes → "Retrieve Form 1099-K" | Pull tax form for the year | {status:colour=Red|title=HIGH} | Easy (download) | No | None | Sensitive PII / tax data; should not flow through an autonomous agent. |
+
+----
+
+h2. 9. Performance & Policies
+
+|| Action || Location || Description || Risk || Reversibility || Cust. Impact || Financial || Reasoning ||
+| Acknowledge a performance scorecard update | Performance → Scorecard | Acknowledge a new metric snapshot | {status:colour=Yellow|title=MEDIUM} | Hard | No | None | Acknowledgement is audit-logged; surface to seller. |
+| Submit a performance dispute (chargeback / defect) | Performance → Disputes → "File dispute" | Contest a count toward seller-defect or charge-back | {status:colour=Red|title=HIGH} | Hard | Yes | Moderate | Legal/financial argumentation; case becomes record. |
+| File / respond to a policy violation appeal | Policies → Violations → "Appeal" | Push back on a policy violation flag | {status:colour=Red|title=HIGH} | Hard | Yes | Large | Account-level impact; could affect suspension. |
+| Submit reinstatement / Plan of Action after suspension | Policies → Account status → "Submit POA" | File the formal plan to resume selling | {status:colour=Red|title=HIGH} | Impossible (one-shot) | Yes | Large | Single-attempt window; legal language; always human. |
+
+----
+
+h2. 10. Analytics & Reports
+
+|| Action || Location || Description || Risk || Reversibility || Cust. Impact || Financial || Reasoning ||
+| Generate / download a standard report | Analytics → Reports → "Download" | Pull a pre-built report (sales, inventory, items, returns) | {status:colour=Green|title=LOW} | Easy | No | None | Read-only export. |
+| Schedule a recurring report | Analytics → Reports → "Schedule" | Set up daily/weekly auto-generation | {status:colour=Green|title=LOW} | Easy | No | None | Just timing; output is read-only. |
+| Save a custom Search Insights view / filter | Growth → Search Insights → "Save view" | Save filter set for future use | {status:colour=Green|title=LOW} | Easy | No | None | Personalization only. |
+
+----
+
+h2. 11. Growth Opportunities
+
+|| Action || Location || Description || Risk || Reversibility || Cust. Impact || Financial || Reasoning ||
+| Accept a Listing Quality recommendation (auto-suggested attribute fill) | Growth → Listing Quality → row action | Apply Walmart's suggested attribute/content improvement | {status:colour=Yellow|title=MEDIUM} | Easy | Yes | None | Customer-visible content edit; opt-in OK with diff preview. |
+| Accept an Assortment Growth suggestion (add SKU to category) | Growth → Assortment Growth → "Accept" | Add a Walmart-suggested SKU to your catalog | {status:colour=Yellow|title=MEDIUM} | Moderate | Yes | Small–Moderate | Commits to inventory and setup work; bounded. |
+| Apply / enroll in Pro Seller badge program | Growth → Pro Seller → "Apply" | Submit application for the Pro Seller badge | {status:colour=Yellow|title=MEDIUM} | Easy | Yes | None | Reversible but brand-positioning move. |
+| Request product reviews (free / paid review boost) | Growth → Reviews → "Request reviews" | Use free or paid Walmart programs to solicit customer reviews | {status:colour=Green|title=LOW} | Easy (no rescind on sent emails) | Minor | None to Small | Low risk if within seller-set monthly cap. |
+
+----
+
+h2. 12. Advertising (Walmart Connect)
+
+|| Action || Location || Description || Risk || Reversibility || Cust. Impact || Financial || Reasoning ||
+| Claim expiring free ad credit | Advertising → Walmart Connect → "Claim credit" | Apply a Walmart-issued ad credit before expiry | {status:colour=Green|title=LOW} | Easy | No | None (free credit) | Free money; capture before it lapses. |
+| Refresh / add suggested keywords to a Sponsored Search campaign | Advertising → Walmart Connect → Campaign → "Add suggested keywords" | Add platform-suggested keywords to existing ad group | {status:colour=Yellow|title=MEDIUM} | Easy (pause/remove) | No (back-end) | Small | Spend stays within budget cap; reversible. |
+| Adjust campaign daily budget (within seller cap) | Advertising → Campaign → "Edit budget" | Raise/lower a campaign's daily budget within a ±% bound | {status:colour=Yellow|title=MEDIUM} | Easy | No | Moderate | Bounded $ change; opt-in OK with hard ceiling. |
+| Pause / resume a campaign | Advertising → Campaign → "Pause"/"Resume" | Stop or resume ad delivery | {status:colour=Yellow|title=MEDIUM} | Easy | No | Moderate | Reversible; opportunity-cost only. |
+| Launch a new Sponsored Search / Onsite Display / Brand Shop campaign | Advertising → "Create campaign" | Stand up a new paid ad campaign | {status:colour=Red|title=HIGH} | Moderate | Yes | Large | New committed budget; brand asset; bid strategy choice. |
+
+----
+
+h2. 13. Apps / API & Settings / Profile
+
+|| Action || Location || Description || Risk || Reversibility || Cust. Impact || Financial || Reasoning ||
+| Authorize a third-party app / generate API key | Settings → Developer / Apps → "Add" | Issue OAuth credentials / API keys to a partner | {status:colour=Red|title=HIGH} | Hard (revoke + rotate) | Yes (data access) | Moderate | Grants programmatic write access to the entire account. |
+| Update business / legal info (DBA, address, EIN) | Settings → Account → Business info | Change registered business information | {status:colour=Red|title=HIGH} | Hard (re-verification) | No | None | Triggers re-verification + potential selling pause. |
+| Add / remove user, change user role | Settings → Users → "Add user" / "Edit role" | Modify who has access and at what permission level | {status:colour=Red|title=HIGH} | Easy (remove) | No | None | Access-control change; insider-risk impact. |
+| Update Brand Registry / IP info | Settings → Brand Registry | Submit/modify trademarked brand information | {status:colour=Red|title=HIGH} | Hard | Yes | None | Legal/IP claim; permanent record; never autonomous. |
+
+----
+
+h2. Autonomy policy recommendations for Sage
+
+h3. {status:colour=Green|title=LOW — Autonomous (default ON)}
+
+These 17 actions are the bedrock of Sage's value: they are reversible, customer-invisible (or trivially so), and free. Sage should execute them on its own initiative, log the action with reasoning, and surface a daily digest. Examples:
+
+* Fill missing optional attributes from the seller's own data library
+* Refresh repricer / search insight views
+* Claim expiring ad credits
+* Mark internal to-dos complete; dismiss stale alerts
+* Generate / schedule reports
+
+*Guardrails*: daily action-count cap, allowlist of action types in {{sage.policy.low}}, and a one-click "undo last batch" from the Sage console.
+
+h3. {status:colour=Yellow|title=MEDIUM — Opt-in with bounds (default OFF, easily enabled)}
+
+These 28 actions are where Sage delivers leverage but must respect seller-set rules. They become Autonomous only after the seller opts in *per category* and configures bounds:
+
+* *Price changes* — opt-in toggle + floor/ceiling % and absolute $ bounds per SKU
+* *Bulk content edits* — opt-in toggle + max items per run + mandatory dry-run preview
+* *Repricer assignments* — opt-in toggle + allowed-strategy list
+* *Ad budget adjustments* — opt-in toggle + ±% cap and absolute daily ceiling
+* *Promotional enrollments* (non-event) — opt-in toggle + max discount % and duration cap
+* *Listing Quality / Assortment Growth accepts* — opt-in toggle + diff-preview required
+
+*Guardrails*: every MEDIUM action emits an in-app notification + email, has a 24-hour "rollback" button, and is summarized in a weekly Sage activity report. If 3 sellers/customers complain inside a window, Sage auto-suspends that category and notifies the seller.
+
+h3. {status:colour=Red|title=HIGH — Human-in-the-loop (always)}
+
+These 23 actions are *never* executed by Sage alone, even if the seller wants to opt in. Sage may *draft* the action (e.g., compose a return-decision recommendation, pre-populate a POA, propose a deletion list) and *queue it for approval* in the Sage console, but the seller must click *Approve* in the live Seller Center session. Categories include:
+
+* Account, identity, payout, and tax actions (1099-K, payout method, ACH, business info, brand registry, user roles, API key issuance)
+* Order-lifecycle commitments (ship-confirm, cancel, change ship date)
+* Refunds, return approvals, customer concessions
+* Performance disputes, policy appeals, Plan-of-Action submissions
+* High-impact catalog operations (delete items, change product IDs, manage duplicates with merges)
+* Event-locked or large-discount pricing (Walmart Deals, clearance, Automate Pricing T&C acceptance)
+* Large new advertising commitments (new campaigns, new shipping methods)
+
+*Guardrails*: pending HIGH-risk drafts expire after 72h, are signed with Sage's reasoning, and require fresh MFA on the seller side to execute. Every HIGH execution is double-logged in Sage's audit trail and the Seller Center activity log.
+
+----
+
+h2. Appendix — Methodology, gaps, and live-validation TODOs
+
+{warning:title=Live-session limitations}
+This inventory was *not* validated against a live Seller Center session for partner *100009*. Login was blocked at {{login.account.wal-mart.com}} because (a) credentials are not in scope for an autonomous agent and (b) MFA cannot be solved without a human. To validate the exact button labels and modal flows, a Walmart user should perform a screen-share / supervised browser session and Sage's QA process can re-walk this list with a {{live=true}} flag.
+{warning}
+
+*Source-of-truth walk*: [Marketplace Learn → Guides|https://marketplacelearn.walmart.com/guides] — sidebar IA enumerated by clicking each heading and recording 130+ subheadings. The Repricer flow was opened to verify the four pricing-strategy options and the Automate Pricing T&C requirement.
+
+*Known gaps to validate live*:
+# Exact button labels for Order Acknowledge vs. Mark-Shipped flows (may have changed in Aurora UI)
+# Whether "Cancel order" and "Issue refund" still surface from the same row menu
+# Current location of Brand Registry (under Settings vs. Growth in the new IA)
+# Whether Walmart Business advertising surface has additional standalone actions
+# Specific MAP-violation prompts in the price-update flow
+
+*Recommended next step*: schedule a 30-minute pairing with a Seller Center admin who can log in as partner 100009. Re-walk this list together and append any new actions discovered.
