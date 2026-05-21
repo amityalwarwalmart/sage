@@ -20,18 +20,29 @@
   </div>
 
   <!-- Big call-to-action -->
-  <a href="/inbox" class="block sage-grad-soft rounded-3xl p-8 mb-10 border-2 border-wmblue-10 card-shadow card-shadow-hover transition-all">
-    <div class="flex items-center justify-between gap-6">
-      <div class="flex-1">
-        <div class="text-sm font-bold text-wmblue-130 uppercase tracking-wider mb-2">Start here →</div>
-        <h2 class="text-2xl font-bold text-wmgray-160 mb-2">See today's to-do list</h2>
-        <p class="text-wmgray-100">I'll walk you through each idea one by one. You decide what to do — I just suggest and help.</p>
+  <div class="grid md:grid-cols-2 gap-5 mb-10">
+    <a href="/workspace" class="block sage-grad-soft rounded-3xl p-7 border-2 border-wmblue-10 card-shadow card-shadow-hover transition-all">
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex-1">
+          <div class="text-sm font-bold text-wmblue-130 uppercase tracking-wider mb-2">Start your morning here →</div>
+          <h2 class="text-2xl font-bold text-wmgray-160 mb-1">See your whole shop in one screen</h2>
+          <p class="text-wmgray-100 text-sm">Health, inventory, ads, compliance — all live, all together.</p>
+        </div>
+        <div class="hidden md:flex w-16 h-16 sage-grad rounded-2xl items-center justify-center text-3xl flex-shrink-0">🖥️</div>
       </div>
-      <div class="hidden md:flex w-20 h-20 sage-grad rounded-3xl items-center justify-center text-4xl flex-shrink-0">
-        ✨
+    </a>
+
+    <a href="/inbox" class="block bg-white rounded-3xl p-7 border-2 border-wmgray-30 card-shadow card-shadow-hover transition-all">
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex-1">
+          <div class="text-sm font-bold text-wmgray-100 uppercase tracking-wider mb-2">Today's ideas →</div>
+          <h2 class="text-2xl font-bold text-wmgray-160 mb-1">Walk through my to-do list</h2>
+          <p class="text-wmgray-100 text-sm">I'll explain each idea one by one. You decide what happens.</p>
+        </div>
+        <div class="hidden md:flex w-16 h-16 bg-spark-100 rounded-2xl items-center justify-center text-3xl flex-shrink-0">✨</div>
       </div>
-    </div>
-  </a>
+    </a>
+  </div>
 
   <!-- Top opportunities — story cards -->
   <div class="mb-10">

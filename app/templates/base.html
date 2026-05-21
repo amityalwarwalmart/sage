@@ -150,6 +150,7 @@
       </a>
       {% if active == 'sage' %}
         {{ subnav('/', 'home', 'Home', sub_page|default('')) }}
+        {{ subnav('/workspace', 'workspace', 'Workspace', sub_page|default('')) }}
         {{ subnav('/inbox', 'inbox', "Today's to-do list", sub_page|default('')) }}
         {{ subnav('/rules', 'rules', 'Price rules', sub_page|default('')) }}
         {{ subnav('/runs', 'runs', "What I've done", sub_page|default('')) }}

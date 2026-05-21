@@ -564,6 +564,163 @@ def _apply_guardrails_to_pricing_opps() -> None:
 _apply_guardrails_to_pricing_opps()
 
 
+# ---------- Workspace tiles (the "visualize + act" surface) ----------
+
+@dataclass
+class SparkPoint:
+    x: int  # day index 0..6
+    y: float
+
+
+@dataclass
+class WorkspaceTile:
+    """One live tile on Sage's workspace dashboard."""
+    id: str
+    title: str
+    emoji: str
+    status: Literal["good", "warn", "alert"]
+    headline: str  # the big number / status text
+    sub_label: str  # tiny label under the big number
+    summary: str  # one-line plain-english
+    trend: str  # e.g. "↑ 2% this week" or "↓ 4 items"
+    trend_direction: Literal["up_good", "down_good", "up_bad", "down_bad", "flat"]
+    deep_link: str  # /plan/opp-X or other URL
+    deep_link_label: str  # "See the plan →"
+    metrics: list[tuple[str, str, str]]  # (label, value, status_color)
+    sparkline: list[float] | None = None  # optional 7-day series for sales velocity
+    updated_min_ago: int = 4
+
+
+def _seed_workspace_tiles() -> list[WorkspaceTile]:
+    return [
+        # COMPLIANCE — the red one that drives the demo flow
+        WorkspaceTile(
+            id="compliance",
+            title="Compliance",
+            emoji="⚖️",
+            status="alert",
+            headline="3 flagged",
+            sub_label="need your attention",
+            summary="Walmart flagged 3 listings for missing safety docs. I drafted appeals.",
+            trend="↓ act within 5 days",
+            trend_direction="down_bad",
+            deep_link="/inbox",  # will point to compliance opp once built
+            deep_link_label="Review the appeals →",
+            metrics=[
+                ("Critical issues", "0", "good"),
+                ("Needs appeal", "3", "alert"),
+                ("Resolved this month", "7", "good"),
+            ],
+            updated_min_ago=4,
+        ),
+        # ACCOUNT HEALTH — the green-but-trending-yellow one
+        WorkspaceTile(
+            id="health",
+            title="Account health",
+            emoji="🩺",
+            status="warn",
+            headline="94",
+            sub_label="out of 100",
+            summary="Your reply-to-shoppers rate is slipping. I drafted 8 replies you can send.",
+            trend="↓ 2 points this week",
+            trend_direction="down_bad",
+            deep_link="/inbox",
+            deep_link_label="See drafted replies →",
+            metrics=[
+                ("On-time delivery", "99.8%", "good"),
+                ("Cancel rate", "0.20%", "good"),
+                ("Reply rate", "88%", "warn"),
+                ("Pro Seller badge", "Safe — for now", "warn"),
+            ],
+            updated_min_ago=2,
+        ),
+        # INVENTORY — mostly green with a stockout warning
+        WorkspaceTile(
+            id="inventory",
+            title="Inventory",
+            emoji="📦",
+            status="warn",
+            headline="8 days",
+            sub_label="until you run out of Garnier",
+            summary="1 item is about to stock out, 7,208 are aged. Let's plan a restock.",
+            trend="↑ 1 stockout risk added",
+            trend_direction="up_bad",
+            deep_link="/plan/opp-1001",  # aging inventory opp
+            deep_link_label="Plan a restock →",
+            metrics=[
+                ("Items in stock", "24,891", "good"),
+                ("At-risk of stockout", "1", "warn"),
+                ("Aged >12 months", "1,054", "alert"),
+            ],
+            updated_min_ago=6,
+        ),
+        # SALES VELOCITY — green with a sparkline
+        WorkspaceTile(
+            id="sales",
+            title="Sales velocity",
+            emoji="📈",
+            status="good",
+            headline="$26.4K",
+            sub_label="this week",
+            summary="Sales are tracking 13% below last week, mostly from your Davidoff stockout.",
+            trend="↓ 13% vs last week",
+            trend_direction="down_bad",
+            deep_link="/plan/opp-1000",
+            deep_link_label="Win back the Buy Box →",
+            metrics=[
+                ("Orders this week", "1,020", "good"),
+                ("Avg order value", "$25.93", "good"),
+                ("Refund rate", "6.0%", "warn"),
+            ],
+            sparkline=[8.4, 7.1, 6.8, 6.2, 4.1, 3.9, 4.2],  # in $K
+            updated_min_ago=8,
+        ),
+        # ADS / WALMART CONNECT — green with a free-money nudge
+        WorkspaceTile(
+            id="ads",
+            title="Ads &amp; promos",
+            emoji="🎯",
+            status="warn",
+            headline="$1,250",
+            sub_label="in free ad money expiring soon",
+            summary="Claim your unused Walmart ad credits before June 3 — I have a plan ready.",
+            trend="↑ 7.0x return on ad spend",
+            trend_direction="up_good",
+            deep_link="/plan/opp-1004",
+            deep_link_label="Claim the credits →",
+            metrics=[
+                ("Active campaigns", "4", "good"),
+                ("Return on ad spend", "7.0×", "good"),
+                ("Credits expiring", "$1,250", "warn"),
+            ],
+            updated_min_ago=11,
+        ),
+        # SEARCH RANK — green improvement
+        WorkspaceTile(
+            id="search",
+            title="Search visibility",
+            emoji="🔍",
+            status="good",
+            headline="+15%",
+            sub_label="projected sales lift from SEO",
+            summary="I have improved titles & descriptions ready for your top 33 items.",
+            trend="↑ 12% more page views this week",
+            trend_direction="up_good",
+            deep_link="/plan/opp-1003",
+            deep_link_label="See the rewrites →",
+            metrics=[
+                ("Items ranking top-10", "487", "good"),
+                ("Listings 'Poor' quality", "247", "alert"),
+                ("Avg rank trend", "↑ 4 spots", "good"),
+            ],
+            updated_min_ago=14,
+        ),
+    ]
+
+
+WORKSPACE_TILES: list[WorkspaceTile] = _seed_workspace_tiles()
+
+
 # ---------- KPI helpers ----------
 
 def kpi_summary() -> dict:

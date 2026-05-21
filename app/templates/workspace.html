@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Workspace · Sage{% endblock %}
+{% block content %}
+
+<div class="px-8 py-7 max-w-7xl mx-auto">
+
+  <!-- Header -->
+  <div class="flex items-start justify-between gap-6 mb-6">
+    <div>
+      <div class="flex items-center gap-2 text-sm font-bold text-wmgreen-130 mb-2">
+        <span class="w-2 h-2 rounded-full bg-wmgreen-100 pulse-dot"></span>
+        Live · I'm watching all six of these for you, all the time
+      </div>
+      <h1 class="text-3xl font-extrabold text-wmgray-160 leading-tight mb-1">
+        Your shop at a glance
+      </h1>
+      <p class="text-wmgray-130 text-lg">Everything that matters, in one place. Tap any tile to see what I'd suggest.</p>
+    </div>
+    <div class="hidden md:flex items-center gap-3 flex-shrink-0">
+      <div class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-wmred-10 border border-wmred-100/40">
+        <span class="text-xl">🔴</span>
+        <div>
+          <div class="text-2xl font-extrabold text-wmred-130 leading-none">{{ alerts }}</div>
+          <div class="text-xs text-wmred-130/80 font-semibold">need attention</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-spark-5 border border-spark-100/40">
+        <span class="text-xl">🟡</span>
+        <div>
+          <div class="text-2xl font-extrabold text-spark-140 leading-none">{{ warns }}</div>
+          <div class="text-xs text-spark-140/80 font-semibold">worth watching</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-wmgreen-10 border border-wmgreen-100/40">
+        <span class="text-xl">🟢</span>
+        <div>
+          <div class="text-2xl font-extrabold text-wmgreen-130 leading-none">{{ goods }}</div>
+          <div class="text-xs text-wmgreen-130/80 font-semibold">looking good</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tile grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+    {% for t in tiles %}
+      {% set status_border = {'good':'border-wmgreen-100/40','warn':'border-spark-100/60','alert':'border-wmred-100/60'}[t.status] %}
+      {% set status_bg = {'good':'bg-wmgreen-10/30','warn':'bg-spark-5','alert':'bg-wmred-10/40'}[t.status] %}
+      {% set status_dot = {'good':'bg-wmgreen-100','warn':'bg-spark-100','alert':'bg-wmred-100'}[t.status] %}
+      {% set headline_color = {'good':'text-wmgreen-130','warn':'text-spark-140','alert':'text-wmred-130'}[t.status] %}
+
+      <a href="{{ t.deep_link }}"
+         class="block bg-white rounded-2xl border-2 {{ status_border }} card-shadow card-shadow-hover transition-all overflow-hidden group">
+
+        <!-- Top strip: title + status dot -->
+        <div class="flex items-center justify-between px-5 pt-5 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">{{ t.emoji }}</span>
+            <span class="font-bold text-wmgray-160">{{ t.title|safe }}</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full {{ status_dot }} {% if t.status != 'good' %}pulse-dot{% endif %}"></span>
+            <span class="text-[11px] text-wmgray-100">updated {{ t.updated_min_ago }}m ago</span>
+          </div>
+        </div>
+
+        <!-- Headline -->
+        <div class="px-5 pb-3">
+          <div class="flex items-baseline gap-2">
+            <div class="text-4xl font-black {{ headline_color }} leading-none">{{ t.headline }}</div>
+            <div class="text-sm text-wmgray-100">{{ t.sub_label }}</div>
+          </div>
+          <div class="text-xs mt-2 font-semibold
+                      {% if t.trend_direction == 'up_good' %}text-wmgreen-130
+                      {% elif t.trend_direction == 'down_good' %}text-wmgreen-130
+                      {% elif t.trend_direction == 'up_bad' %}text-wmred-130
+                      {% elif t.trend_direction == 'down_bad' %}text-wmred-130
+                      {% else %}text-wmgray-100{% endif %}">
+            {{ t.trend }}
+          </div>
+        </div>
+
+        <!-- Visual: sparkline for sales, mini-bars for metrics elsewhere -->
+        {% if t.sparkline %}
+          <div class="px-5 pb-3">
+            <svg viewBox="0 0 200 40" class="w-full h-12" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="grad-{{ t.id }}" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#0053e2" stop-opacity="0.3"/>
+                  <stop offset="100%" stop-color="#0053e2" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              {% set mx = t.sparkline|max %}
+              {% set mn = t.sparkline|min %}
+              {% set rng = (mx - mn) if (mx - mn) > 0 else 1 %}
+              {% set pts = [] %}
+              {% for v in t.sparkline %}
+                {% set x = loop.index0 * (200 / (t.sparkline|length - 1)) %}
+                {% set y = 40 - ((v - mn) / rng * 32) - 4 %}
+                {% set _ = pts.append((x|round(1)) ~ ',' ~ (y|round(1))) %}
+              {% endfor %}
+              <polyline points="{{ pts|join(' ') }}" fill="none" stroke="#0053e2" stroke-width="2" stroke-linejoin="round"/>
+              <polyline points="0,40 {{ pts|join(' ') }} 200,40" fill="url(#grad-{{ t.id }})" stroke="none"/>
+            </svg>
+            <div class="flex justify-between text-[10px] text-wmgray-70 mt-1">
+              <span>7 days ago</span>
+              <span>today</span>
+            </div>
+          </div>
+        {% endif %}
+
+        <!-- Summary -->
+        <div class="px-5 pb-3">
+          <p class="text-sm text-wmgray-130 leading-snug">{{ t.summary }}</p>
+        </div>
+
+        <!-- Mini metric strip -->
+        <div class="border-t border-wmgray-30 {{ status_bg }} px-5 py-3">
+          <div class="grid {% if t.metrics|length == 3 %}grid-cols-3{% else %}grid-cols-2 md:grid-cols-4{% endif %} gap-2">
+            {% for label, value, color in t.metrics %}
+              <div>
+                <div class="text-[10px] text-wmgray-100 font-semibold uppercase tracking-wider truncate">{{ label }}</div>
+                <div class="text-sm font-bold
+                            {% if color == 'good' %}text-wmgreen-130
+                            {% elif color == 'warn' %}text-spark-140
+                            {% elif color == 'alert' %}text-wmred-130
+                            {% else %}text-wmgray-160{% endif %}">{{ value }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Action footer -->
+        <div class="border-t border-wmgray-30 px-5 py-3 flex items-center justify-between bg-white">
+          <span class="text-sm font-bold text-wmblue-100 group-hover:underline">{{ t.deep_link_label }}</span>
+          <span class="text-wmblue-100 group-hover:translate-x-1 transition-transform">→</span>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+
+  <!-- Story strip below the tiles -->
+  <div class="mt-8 bg-white rounded-2xl border border-wmgray-30 p-6 flex items-start gap-5">
+    <div class="w-12 h-12 sage-grad rounded-2xl flex items-center justify-center text-white text-xl font-bold flex-shrink-0">S</div>
+    <div class="flex-1">
+      <div class="font-bold text-wmgray-160 mb-1">A note from Sage</div>
+      <p class="text-wmgray-130 leading-relaxed">
+        I check on every one of these tiles automatically, all day. When something needs your attention I'll drop it on your
+        <a href="/inbox" class="text-wmblue-100 font-bold hover:underline">to-do list</a>. Most things I can just fix on my own — but for the bigger calls, I'll always ask you first.
+        Want to change what I handle? <a href="/settings" class="text-wmblue-100 font-bold hover:underline">Your preferences →</a>
+      </p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
