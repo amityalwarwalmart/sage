@@ -49,9 +49,10 @@ ActionType = Literal[
     "new_sku_pricing",          # HIGH — net-new SKU
     "hero_sku_repositioning",   # HIGH — touching a hero SKU
     "bundle_pricing",           # HIGH — bundle / strategic
+    "repricer_enrollment",      # MEDIUM — enroll items in Walmart Repricer (1.28% baseline today)
 ]
 GoalKey = Literal["protect_margin", "maximize_buybox", "liquidate_aged", "price_stability"]
-CohortKey = Literal["all_enrolled", "hero_skus", "fee_linked", "inventory_risk", "price_risk", "new_skus"]
+CohortKey = Literal["all_enrolled", "hero_skus", "fee_linked", "inventory_risk", "price_risk", "new_skus", "repricer_not_enrolled"]
 
 # --- Static lookups (used by templates) ---
 
@@ -69,6 +70,7 @@ ACTION_TYPE_META: dict[str, dict[str, str]] = {
     "new_sku_pricing":         {"label": "New SKU pricing",            "tier": "high",   "icon": "🆕"},
     "hero_sku_repositioning":  {"label": "Hero SKU repositioning",     "tier": "high",   "icon": "🏆"},
     "bundle_pricing":          {"label": "Bundle pricing",             "tier": "high",   "icon": "📦"},
+    "repricer_enrollment":     {"label": "Enroll in Repricer",         "tier": "medium", "icon": "⚡"},
 }
 
 TIER_META: dict[str, dict[str, str]] = {
@@ -258,6 +260,7 @@ def _seed_cohorts() -> list[Cohort]:
         Cohort("fee_linked",    "Fee-linked offers",          "Items with active reduced-referral-fee opportunities", 64, enrolled=False),
         Cohort("hero_skus",     "Hero SKUs",                  "Your top-revenue items — never auto-changed", 12, excluded=True),
         Cohort("new_skus",      "New SKUs (<30 days)",        "Recently launched items — pricing needs human judgment", 31, excluded=True),
+        Cohort("repricer_not_enrolled", "Not in Repricer yet", "Items not yet enrolled in Walmart Repricer — currently 98.72% of your catalog", 36562, enrolled=False),
     ]
 
 
@@ -663,6 +666,43 @@ def _seed_actions() -> list[PricingAction]:
         created_at=now - timedelta(days=1, hours=2),
     ))
 
+    # ============================================================
+    # MEDIUM TIER — The headline opportunity: only 1.28% of catalog
+    # is enrolled in Walmart Repricer today. Marty surfaces a bulk
+    # enrollment action covering the highest-traffic + most-competitive
+    # unenrolled SKUs as the #1 action a seller can take.
+    # ============================================================
+    actions.append(PricingAction(
+        id=_aid(),
+        sku="BULK-REPRICER-TOP-1200",
+        item_name="Enroll your top 1,200 unenrolled SKUs in Walmart Repricer",
+        item_image_emoji="⚡",
+        action_type="repricer_enrollment",
+        risk_tier="medium",
+        status="needs_approval",
+        cohort="repricer_not_enrolled",
+        current_price=0.0, proposed_price=0.0,
+        floor_price=None, ceiling_price=None, cost=None,
+        market_signal=None,
+        reason_oneliner="Only 1.28% of your 36,985-SKU catalog is enrolled in Repricer. These 1,200 are the highest-leverage.",
+        reason_detail=(
+            "98.72% of your catalog (36,562 items) is NOT enrolled in Walmart Repricer. Enrolled items see "
+            "+70.35% PCS and +15.88% Buy Box rate vs unenrolled. I've ranked the top 1,200 unenrolled SKUs "
+            "by (page views × PCS gap to competitor) and pre-configured Repricer floors at cost + 18% margin "
+            "using your default policy. You can review the floor on any individual SKU before approving. "
+            "This is the single highest-leverage action available in your account today."
+        ),
+        guardrails_checked=[
+            _gc_pass("Floor per SKU", "Pre-set to cost + 18% margin (above your 15% minimum)"),
+            _gc_pass("Hero SKU exclusion", "12 hero SKUs excluded from bulk enrollment"),
+            _gc_pass("New SKU exclusion", "31 SKUs <30 days old excluded — they need human pricing first"),
+            _gc_pass("MAP", "Repricer respects MAP/MSRP from your existing item setup"),
+            _gc_pass("Reversible", "You can un-enroll any SKU in 1 click; rollback also available bulk"),
+        ],
+        expected_gmv_lift_usd=86_400.0, expected_margin_delta_usd=-3_200.0, confidence=88,
+        created_at=now - timedelta(minutes=2),
+    ))
+
     return actions
 
 
@@ -718,6 +758,81 @@ def run_stats() -> AgentRunStat:
         hours_saved_estimate_7d=14.5,
         last_check_minutes_ago=2,
     )
+
+
+# --- Walmart-wide telemetry (matches updated Pricing Insights screenshot) ---
+# Values mirror screenshot SCR-20260527-jgcf.png so the demo lines up with reality.
+MARKETPLACE_TELEMETRY = {
+    "buybox_win_rate_pct":      5.62,
+    "buybox_win_rate_delta_pct": -0.07,
+    "pcs_pct":                  65.44,
+    "pcs_delta_pct":            1.93,
+    "pcs_pro_seller_benchmark": 75.0,
+    "pcs_gap_to_pro_seller":    9.56,
+    "repricer_enrolled_pct":    1.28,
+    "repricer_not_enrolled_pct":98.72,
+    "repricer_enrolled_pcs":    70.35,
+    "repricer_enrolled_buybox_rate": 15.88,
+    "unpublished_items_count":  378,
+    "unpublished_gmv_loss_usd": 475_000,
+    "aging_items_count":        1055,
+    "aging_gmv_opportunity_usd":153_000,
+    "small_price_gap_items_count": 1834,
+    "small_price_gap_gmv_usd":  17_000,
+    "catalog_total_items":      36985,
+}
+
+
+# --- Community queries (real Smart Filters telemetry, Apr 27 → May 27 2026) ---
+# Sourced from Smart filters_Insights_2026-04-27_to_2026-05-27.csv
+# Used to (a) seed the "Sellers like you are asking…" overview panel and
+# (b) inform intent routing in marty_chat.py.
+@dataclass
+class CommunityQuery:
+    rank: int
+    query: str
+    count: int
+    intent: str       # which Marty intent it maps to
+    icon: str
+    translated: str = ""   # English translation if non-English
+    lang: str = "en"       # ISO-639-1
+
+
+COMMUNITY_QUERIES: list[CommunityQuery] = [
+    CommunityQuery(1, "Losing the Buy Box", 53, "losing_buybox", "🎯",
+                   lang="en"),
+    CommunityQuery(2, "流量高但销售额低的产品", 9, "high_traffic_low_sales", "📈",
+                   translated="Products with high traffic but low sales", lang="zh"),
+    CommunityQuery(3, "Items with aged inventory that are losing the Buy Box", 6, "aged_and_losing_buybox", "🐢",
+                   lang="en"),
+    CommunityQuery(4, "长期库存滞销且正在失去 Buy Box 的商品", 3, "aged_and_losing_buybox", "🐢",
+                   translated="Aged inventory items that are losing the Buy Box", lang="zh"),
+    CommunityQuery(5, "Products with high traffic and low sales", 3, "high_traffic_low_sales", "📈",
+                   lang="en"),
+    CommunityQuery(6, "price not competitive", 2, "not_competitive", "💰",
+                   lang="en"),
+    CommunityQuery(7, "Reason for Buy Box ineligibility", 2, "buybox_ineligibility", "❓",
+                   lang="en"),
+    CommunityQuery(8, "kar elde etme oranı yüksek olanlar", 1, "high_margin", "💵",
+                   translated="Products with high profit margin", lang="tr"),
+    CommunityQuery(9, "products that are WFS AND have no buybox", 1, "wfs_no_buybox", "📦",
+                   lang="en"),
+    CommunityQuery(10, "products with high traffic and close to competitive price but not having buybox", 1, "close_but_no_buybox", "🎯",
+                   lang="en"),
+]
+
+# Quick lookups
+QUERY_INTENT_PHRASES: dict[str, list[str]] = {
+    "losing_buybox":           ["losing the buy box", "losing buy box", "lost buy box", "lose the buy box", "失去buybox", "失去 buy box"],
+    "high_traffic_low_sales":  ["high traffic and low sales", "high traffic low sales", "traffic high", "low conversion", "流量高但销售", "high view low sale"],
+    "aged_and_losing_buybox":  ["aged inventory", "aged and losing", "aging", "old inventory", "长期库存", "库存滞销"],
+    "not_competitive":         ["not competitive", "price not competitive", "价格没有竞争力", "uncompetitive"],
+    "buybox_ineligibility":    ["ineligible", "ineligibility", "reason for buy box", "why no buy box", "why can't i win"],
+    "high_margin":             ["high margin", "high profit", "kar elde etme", "高利润"],
+    "wfs_no_buybox":           ["wfs and have no buybox", "wfs no buybox", "wfs without buybox"],
+    "close_but_no_buybox":     ["close to competitive", "close but not having buybox", "close to competitor"],
+    "repricer_enroll":         ["enroll in repricer", "repricer enrollment", "add to repricer", "start using repricer", "why repricer", "about repricer"],
+}
 
 
 def actions_by_status(status: ActionStatus) -> list[PricingAction]:

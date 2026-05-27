@@ -230,23 +230,36 @@
       I'm Marty — your AI assistant. I just gained <strong>Pricing Agent</strong> superpowers. Want me to walk you through what I'm watching?
     </p>
 
-    <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mt-4 mb-2">Try asking:</div>
+    <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mt-4 mb-2">Top questions from sellers like you:</div>
     <div class="space-y-2">
       <button type="button" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-wmgray-30 text-[13px] hover:border-marty-100 hover:bg-marty-5 transition"
-              onclick="askMarty('Show me what you did today')">📊 Show me what you did today</button>
+              onclick="askMarty('Show me items losing the Buy Box')">
+        🎯 <strong>Losing the Buy Box</strong> <span class="text-[10px] text-wmgray-100">×53 sellers</span>
+      </button>
       <button type="button" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-wmgray-30 text-[13px] hover:border-marty-100 hover:bg-marty-5 transition"
-              onclick="askMarty('What needs my approval?')">⏳ What needs my approval?</button>
+              onclick="askMarty('Why should I enroll in Repricer?')">
+        ⚡ <strong>Why enroll in Repricer?</strong> <span class="text-[10px] text-wmred-130 font-bold">only 1.28% enrolled</span>
+      </button>
       <button type="button" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-wmgray-30 text-[13px] hover:border-marty-100 hover:bg-marty-5 transition"
-              onclick="askMarty(\"What's my biggest risk right now?\")">⚠️ What's my biggest risk right now?</button>
+              onclick="askMarty('Show me aged inventory losing the Buy Box')">
+        🐢 <strong>Aged inventory losing Buy Box</strong>
+      </button>
       <button type="button" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-wmgray-30 text-[13px] hover:border-marty-100 hover:bg-marty-5 transition"
-              onclick="askMarty('Why did you drop Garnier?')">🤔 Why did you drop Garnier?</button>
+              onclick="askMarty('What is the reason for Buy Box ineligibility?')">
+        ❓ <strong>Why am I ineligible for Buy Box?</strong>
+      </button>
+      <button type="button" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-wmgray-30 text-[13px] hover:border-marty-100 hover:bg-marty-5 transition"
+              onclick="askMarty('Show me what you did today')">
+        📊 <strong>What you did today</strong>
+      </button>
     </div>
 
-    <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mt-5 mb-2">Or explore:</div>
+    <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mt-5 mb-2">⚠️ I also speak:</div>
     <div class="flex flex-wrap gap-1.5">
-      {% for chip, ask in [('Catalog', 'Go to catalog'), ('Pricing', 'Open pricing'), ('Orders', 'Show orders'), ('WFS', 'WFS overview'), ('Growth', 'Growth tools')] %}
-        <span class="text-[11px] px-2.5 py-1 rounded-full border border-wmgray-30 text-wmgray-130 hover:border-marty-100 hover:text-marty-100 cursor-pointer">{{ chip }}</span>
-      {% endfor %}
+      <button type="button" onclick="askMarty('流量高但销售额低的产品')"
+              class="text-[11px] px-2.5 py-1 rounded-full border border-wmgray-30 text-wmgray-130 hover:border-marty-100 hover:text-marty-100">中文 · 流量高销售低</button>
+      <button type="button" onclick="askMarty('kar elde etme oranı yüksek olanlar')"
+              class="text-[11px] px-2.5 py-1 rounded-full border border-wmgray-30 text-wmgray-130 hover:border-marty-100 hover:text-marty-100">Türkçe · yüksek karı</button>
     </div>
   </div>
 
@@ -266,7 +279,11 @@
   function toggleMarty() {
     document.getElementById('marty-panel').classList.toggle('hidden');
   }
+  function openMarty() {
+    document.getElementById('marty-panel').classList.remove('hidden');
+  }
   function askMarty(question) {
+    openMarty();
     document.getElementById('marty-input').value = question;
     document.getElementById('marty-input').form.requestSubmit();
   }

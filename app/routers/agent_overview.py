@@ -7,6 +7,8 @@ from fastapi import APIRouter, Request
 
 from app.data.marty import (
     ACTIONS,
+    COMMUNITY_QUERIES,
+    MARKETPLACE_TELEMETRY,
     MODE_META,
     POLICY,
     TIER_META,
@@ -44,4 +46,7 @@ async def agent_overview(request: Request):
         "low_tier_count": len(actions_by_tier("low")),
         "med_tier_count": len(actions_by_tier("medium")),
         "high_tier_count": len(actions_by_tier("high")),
+        "community_queries": COMMUNITY_QUERIES[:6],
+        "telemetry": MARKETPLACE_TELEMETRY,
+        "repricer_enrollment_action": next((a for a in ACTIONS if a.action_type == "repricer_enrollment"), None),
     })

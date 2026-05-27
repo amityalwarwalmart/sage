@@ -25,8 +25,11 @@ from fastapi.responses import HTMLResponse
 from app.data.marty import (
     ACTIONS,
     AUDIT,
+    COMMUNITY_QUERIES,
+    MARKETPLACE_TELEMETRY,
     MODE_META,
     POLICY,
+    QUERY_INTENT_PHRASES,
     TIER_META,
     PricingAction,
     actions_by_status,
@@ -341,18 +344,266 @@ def reply_default(message: str) -> str:
     return _marty(f'''
     <div>I can help with anything pricing-related across the {len(ACTIONS)} actions I'm tracking. Try one of these:</div>
     {_suggestions([
-        ("📊 What you did today", "Show me what you did today"),
-        ("⏳ What's pending?", "What needs my approval?"),
-        ("⚠️ Biggest risk?", "What's my biggest risk right now?"),
-        ("🤖 Switch to autopilot", "Switch to autopilot"),
-        ("🛡️ Show blocked actions", "Show me blocked actions"),
+        ("🎯 Losing Buy Box", "Show me items losing the Buy Box"),
+        ("⚡ Enroll in Repricer", "Why should I enroll in Repricer?"),
+        ("🐢 Aged + losing BB", "Show me aged inventory losing the Buy Box"),
+        ("❓ Why ineligible?", "What\'s the reason for Buy Box ineligibility?"),
+        ("📊 Today's digest", "Show me what you did today"),
     ])}
     ''')
+
+
+# ---------- New community-driven intents (from Smart Filters telemetry) ----------
+
+def _items_losing_buybox(limit: int = 5) -> list[PricingAction]:
+    """All actions that are about Buy Box recovery (match/beat/SPIP, plus price_risk cohort)."""
+    out = [a for a in ACTIONS
+           if a.action_type in ("buybox_match", "buybox_beat_by_cent", "spip_unsuppress")
+           and a.status in ("needs_approval", "auto_executed")]
+    return sorted(out, key=lambda a: -a.expected_gmv_lift_usd)[:limit]
+
+
+def reply_losing_buybox() -> str:
+    items = _items_losing_buybox()
+    total = sum(a.expected_gmv_lift_usd for a in items)
+    cards = "".join(_action_card(a) for a in items)
+    return _marty(f'''
+    <div class="font-bold text-wmgray-160">🎯 Losing the Buy Box — your top community query right now</div>
+    <div class="text-[12px]">
+      You\'ve lost Buy Box on <strong>{MARKETPLACE_TELEMETRY["small_price_gap_items_count"]:,}</strong>
+      items with small price gaps. Here are the highest-value matches I can do right now —
+      worth <strong class="text-wmgreen-130">+${total:,.0f}/30d</strong>.
+    </div>
+    {cards}
+    <div class="flex gap-1.5 pt-1">
+      {_action_btn("✓ Approve all matches", "bulk_approve_buybox", {})}
+      {_link_btn("See full inbox →", "/agent/inbox?cohort=price_risk")}
+    </div>
+    {_suggestions([
+        ("Why am I losing it?", "What\'s the reason for Buy Box ineligibility?"),
+        ("Aged + losing BB", "Show me aged inventory losing the Buy Box"),
+        ("WFS + no BB", "Show WFS items with no Buy Box"),
+    ])}
+    ''')
+
+
+def reply_repricer_enrollment() -> str:
+    """The #1 demo moment — only 1.28% of catalog is enrolled."""
+    enroll_action = next((a for a in ACTIONS if a.action_type == "repricer_enrollment"), None)
+    tel = MARKETPLACE_TELEMETRY
+    card_html = _action_card(enroll_action) if enroll_action else ""
+    return _marty(f'''
+    <div class="font-bold text-wmgray-160">⚡ Repricer is your biggest untapped lever right now.</div>
+    <div class="bg-white rounded-lg p-2.5 border border-wmgray-30">
+      <div class="grid grid-cols-2 gap-2 text-center">
+        <div>
+          <div class="text-2xl font-extrabold text-wmred-130">{tel["repricer_enrolled_pct"]:.2f}%</div>
+          <div class="text-[10px] text-wmgray-100">of your {tel["catalog_total_items"]:,} SKUs are enrolled today</div>
+        </div>
+        <div>
+          <div class="text-2xl font-extrabold text-wmgreen-130">+{tel["repricer_enrolled_buybox_rate"]:.1f}%</div>
+          <div class="text-[10px] text-wmgray-100">Buy Box rate lift on enrolled vs unenrolled</div>
+        </div>
+      </div>
+    </div>
+    <div class="text-[12px]">
+      Enrolled items also see <strong>{tel["repricer_enrolled_pcs"]:.1f}%</strong> PCS
+      vs your overall <strong>{tel["pcs_pct"]:.1f}%</strong>. Closing this gap
+      is the single highest-leverage move available in your account today.
+    </div>
+    <div class="text-[11px] font-bold text-wmgray-100 uppercase tracking-wider pt-1">My proposal:</div>
+    {card_html}
+    {_suggestions([
+        ("Show me what it'd change", "Why did you propose Repricer enrollment?"),
+        ("Approve top 1,200", "Approve the Repricer enrollment action"),
+        ("Show me what you did today", "Show me what you did today"),
+    ])}
+    ''')
+
+
+def reply_high_traffic_low_sales() -> str:
+    rows = [a for a in ACTIONS
+            if a.action_type in ("buybox_match", "buybox_beat_by_cent", "spip_unsuppress")
+            and a.status == "needs_approval"][:3]
+    cards = "".join(_action_card(a) for a in rows)
+    return _marty(f'''
+    <div class="font-bold text-wmgray-160">📈 High traffic, low sales — usually a Buy Box or price problem</div>
+    <div class="text-[12px]">
+      When a SKU has views but no sales, 9 times out of 10 it\'s losing Buy Box to a small price gap
+      or sitting on a price the algorithm doesn\'t consider competitive. Here are 3 likely culprits:
+    </div>
+    {cards}
+    <div class="text-[11px] text-wmgray-100 pt-1">Want the full list? It\'s in the <a href="/agent/inbox?cohort=price_risk" class="text-marty-100 font-bold hover:underline">price-risk cohort</a>.</div>
+    {_suggestions([
+        ("Show losing Buy Box", "Show me items losing the Buy Box"),
+        ("Why ineligible?", "Reason for Buy Box ineligibility"),
+    ])}
+    ''')
+
+
+def reply_aged_and_losing_buybox() -> str:
+    """Compound query — aged inventory + losing buybox = highest-value cohort."""
+    return _marty(f'''
+    <div class="font-bold text-wmgray-160">🐢 Aged inventory that\'s also losing the Buy Box — nasty combo</div>
+    <div class="text-[12px]">
+      You have <strong>{MARKETPLACE_TELEMETRY["aging_items_count"]:,}</strong> items older than 12 months,
+      tying up storage and Buy Box share. There\'s about
+      <strong class="text-wmgreen-130">${MARKETPLACE_TELEMETRY["aging_gmv_opportunity_usd"]:,}</strong>
+      in clearance opportunity sitting here.
+    </div>
+    <div class="bg-white rounded-lg p-2.5 border border-wmgray-30 space-y-1.5">
+      <div class="text-[11px] font-bold text-wmgray-100 uppercase tracking-wider">My recommended play:</div>
+      <div class="text-[12px]">
+        ① Markdown the 1,054-SKU inventory-risk cohort by 8–12% (medium tier, bulk approve)<br>
+        ② Match Buy Box on the highest-traffic aged items first (low tier, auto)<br>
+        ③ Anything still unsold after 30 days → escalate to clearance promo (high tier, your call)
+      </div>
+    </div>
+    <div class="flex gap-1.5 pt-1">
+      {_link_btn("See inventory-risk cohort", "/agent/inbox?cohort=inventory_risk")}
+      {_action_btn("Stage all 3 steps for review", "stage_aged_buybox_plan", {})}
+    </div>
+    ''')
+
+
+def reply_buybox_ineligibility() -> str:
+    """Diagnostic intent — explain the multi-factor model."""
+    return _marty(f'''
+    <div class="font-bold text-wmgray-160">❓ The 5 reasons you can lose Buy Box on Walmart</div>
+    <div class="bg-white rounded-lg p-2.5 border border-wmgray-30 text-[12px] space-y-2">
+      <div><strong>1. Price not competitive ({MARKETPLACE_TELEMETRY["small_price_gap_items_count"]:,} of your items today)</strong><br>
+        <span class="text-wmgray-100">You\'re even $0.01 above another offer on the same item.</span></div>
+      <div><strong>2. Item suppressed (SPIP)</strong><br>
+        <span class="text-wmgray-100">Walmart pulled visibility because the price was too high vs external sites.</span></div>
+      <div><strong>3. Stock-out or low inventory</strong><br>
+        <span class="text-wmgray-100">Sellers with &lt;3 days of inventory get deprioritized.</span></div>
+      <div><strong>4. Poor shipping speed / Pro Seller status</strong><br>
+        <span class="text-wmgray-100">Buy Box weights ship-time and Pro Seller badge alongside price.</span></div>
+      <div><strong>5. Listing quality score below threshold</strong><br>
+        <span class="text-wmgray-100">Missing attributes, low-res images, or weak SEO drop the listing rank.</span></div>
+    </div>
+    <div class="text-[12px]">
+      For YOUR account today, <strong>reason #1 is the biggest —
+      <strong class="text-wmred-130">{MARKETPLACE_TELEMETRY["small_price_gap_items_count"]:,}</strong>
+      items lose Buy Box to small price gaps</strong>. Enrolling in Repricer fixes most of them automatically.
+    </div>
+    {_suggestions([
+        ("Enroll in Repricer", "Why should I enroll in Repricer?"),
+        ("Show losing Buy Box", "Show me items losing the Buy Box"),
+        ("High traffic / low sales", "Products with high traffic and low sales"),
+    ])}
+    ''')
+
+
+def reply_wfs_no_buybox() -> str:
+    return _marty(f'''
+    <div class="font-bold text-wmgray-160">📦 WFS items with no Buy Box</div>
+    <div class="text-[12px]">
+      You\'re paying WFS storage and pick-pack but not winning the order. Usually 1 of 2 reasons:
+      <strong>(a)</strong> another seller is matching price + has competitive shipping, or
+      <strong>(b)</strong> SPIP suppression. I can match price on the worst offenders within your floor:
+    </div>
+    {"".join(_action_card(a) for a in [a for a in ACTIONS if "WFS" in a.sku and a.status == "needs_approval"][:3])}
+    ''')
+
+
+def reply_high_margin() -> str:
+    """For Turkish 'kar elde etme orani yuksek olanlar' / 'high margin'."""
+    high_margin = [a for a in ACTIONS if a.margin_pct and a.margin_pct >= 35]
+    cards = "".join(_action_card(a) for a in high_margin[:3])
+    return _marty(f'''
+    <div class="font-bold text-wmgray-160">💵 Your highest-margin items where I can move price safely</div>
+    <div class="text-[12px]">
+      These have &gt;35% margin at the proposed price, so dropping a bit to win Buy Box still leaves
+      healthy profit.
+    </div>
+    {cards or "<div class='text-[11px] text-wmgray-100'>No high-margin pricing actions pending right now.</div>"}
+    ''')
+
+
+def reply_community_panel() -> str:
+    """Show what other sellers are asking right now — the social-proof intent."""
+    chips = "".join(
+        f'<button onclick="askMarty({_js_escape(q.query)})" '
+        f'class="w-full text-left px-3 py-2 rounded-lg border border-wmgray-30 hover:border-marty-100 hover:bg-marty-5 text-[12px] transition">'
+        f'<span class="text-base mr-2">{q.icon}</span>'
+        f'<strong class="text-wmgray-160">{html.escape(q.query[:50])}{"…" if len(q.query) > 50 else ""}</strong>'
+        f'<span class="text-[10px] text-wmgray-100 ml-2">×{q.count} sellers</span>'
+        f'{f"<div class=\"text-[10px] text-wmgray-100 mt-0.5 ml-7\">{html.escape(q.translated)}</div>" if q.translated else ""}'
+        f'</button>'
+        for q in COMMUNITY_QUERIES[:6]
+    )
+    return _marty(f'''
+    <div class="font-bold text-wmgray-160">👥 Sellers like you have been asking…</div>
+    <div class="text-[12px] text-wmgray-100">Top 6 Smart Filter queries this month — across English, Chinese, and Turkish. Click any to run it.</div>
+    <div class="space-y-1.5">{chips}</div>
+    ''')
+
+
+def _js_escape(s: str) -> str:
+    """Escape a string for use inside a single-quoted JS function arg in HTML."""
+    safe = s.replace("\\", "\\\\").replace("'", "\\'").replace("\"", "&quot;")
+    return f"'{safe}'"
+
+
+# ---------- Multi-language detection ----------
+
+_CJK_RE = re.compile(r'[\u4e00-\u9fff]')
+_TR_RE = re.compile(r'[\u011e\u011f\u0130\u0131\u015e\u015f\u00c7\u00e7\u00d6\u00f6\u00dc\u00fc]')
+
+
+def _detect_lang(message: str) -> str:
+    if _CJK_RE.search(message):
+        return "zh"
+    if _TR_RE.search(message):
+        return "tr"
+    return "en"
+
+
+LANG_BANNERS = {
+    "zh": ("🌏 I see you asked in Chinese —", "Detected: Chinese (中文)"),
+    "tr": ("🌏 I see you asked in Turkish —", "Detected: Turkish (Türkçe)"),
+}
+
+
+def _lang_banner(lang: str, translated_hint: str = "") -> str:
+    if lang == "en":
+        return ""
+    title, sub = LANG_BANNERS.get(lang, ("🌏 Detected non-English message", ""))
+    hint = f'<div class="text-[11px] text-wmgray-130 italic mt-1">I\'m treating your question as: “{html.escape(translated_hint)}”</div>' if translated_hint else ""
+    return (
+        f'<div class="bg-marty-5 border border-marty-100/30 rounded-lg px-2.5 py-1.5 text-[11px]">'
+        f'<div class="font-bold text-marty-130">{title}</div>'
+        f'<div class="text-wmgray-100">{sub}</div>'
+        f'{hint}</div>'
+    )
 
 
 # ---------- Routes ----------
 
 INTENT_PATTERNS: list[tuple[re.Pattern, Callable[[re.Match], str]]] = [
+    # === Real seller queries (highest-volume from Smart Filters telemetry) ===
+    # NOTE: more-specific compound patterns must come BEFORE the generic ones.
+    (re.compile(r'(aged.{0,20}buy.?box|aged.{0,20}losing|aging.{0,20}losing|\u957f\u671f\u5e93\u5b58|old.{0,10}inventory.{0,15}buy.?box|aged.{0,5}inventory)', re.I),
+     lambda m: reply_aged_and_losing_buybox()),
+    (re.compile(r'(wfs.{0,15}(?:no|without).{0,5}buy.?box|wfs.{0,5}and.{0,5}have.{0,5}no.{0,5}buy.?box)', re.I),
+     lambda m: reply_wfs_no_buybox()),
+    (re.compile(r'(losing.{0,5}buy.?box|lose.{0,5}buy.?box|lost.{0,5}buy.?box|\u5931\u53bb.?buybox|\u5931\u53bb.?buy.?box)', re.I),
+     lambda m: reply_losing_buybox()),
+    (re.compile(r'(repricer|enroll.{0,15}repricer|repricer.{0,15}enroll)', re.I),
+     lambda m: reply_repricer_enrollment()),
+    (re.compile(r'(high.{0,5}traffic.{0,5}(?:and|but).{0,5}low.{0,5}sales|\u6d41\u91cf\u9ad8|high.{0,5}view.{0,5}low|traffic.{0,5}low.{0,5}conver)', re.I),
+     lambda m: reply_high_traffic_low_sales()),
+    (re.compile(r'(high.?margin|high.?profit|kar.?elde|\u9ad8\u5229\u6da6)', re.I),
+     lambda m: reply_high_margin()),
+    (re.compile(r'(buy.?box.{0,10}ineligib|reason.{0,5}for.{0,5}buy.?box|why.{0,10}no.{0,5}buy.?box|why.{0,10}lose.{0,5}buy.?box)', re.I),
+     lambda m: reply_buybox_ineligibility()),
+    (re.compile(r'(price.{0,5}not.{0,5}competitive|not.{0,5}competitive|uncompetitive|\u4ef7\u683c\u6ca1\u6709\u7ade\u4e89\u529b)', re.I),
+     lambda m: reply_buybox_ineligibility()),
+    (re.compile(r'(what.{0,5}(?:are|do).{0,5}other.{0,5}sellers|community.{0,5}quer|sellers.{0,5}asking|popular.{0,5}quer)', re.I),
+     lambda m: reply_community_panel()),
+
+    # === Original Wave C intents ===
     (re.compile(r'\b(today|did today|daily|digest|what (?:have|did) you|what.{0,10}been (?:up to|doing)|recent)\b', re.I),
      lambda m: reply_daily_digest()),
     (re.compile(r'\bwhy (?:did|are|is) (?:you |.{0,20} )?(?:drop|raise|change|action|approve|block|skip).*?(\w[\w ]*?)(?:\?|$)', re.I),
@@ -402,14 +653,46 @@ def _reply_blocked() -> str:
 
 
 def _route_intent(message: str) -> str:
+    # Multi-language detection — prepend a banner if non-English
+    lang = _detect_lang(message)
+    translated_hint = ""
+    if lang != "en":
+        # Try to find a community query that matches and use its translation
+        for q in COMMUNITY_QUERIES:
+            if q.lang == lang and q.translated and any(part in message for part in q.query.split() if len(part) > 1):
+                translated_hint = q.translated
+                break
+        if not translated_hint:
+            # Fallback rough heuristics
+            ml = message.lower()
+            if "流量高" in ml or "销售额低" in ml:
+                translated_hint = "Products with high traffic but low sales"
+            elif "长期库存" in ml or "库存滞销" in ml:
+                translated_hint = "Aged inventory items losing Buy Box"
+            elif "buybox" in ml or "buy box" in ml or "失去" in ml:
+                translated_hint = "Items losing the Buy Box"
+            elif "kar" in ml or "yüksek" in ml:
+                translated_hint = "Items with high profit margin"
+
+    banner = _lang_banner(lang, translated_hint)
+
     for pattern, handler in INTENT_PATTERNS:
         m = pattern.search(message)
         if m:
             try:
-                return handler(m)
+                reply = handler(m)
+                if banner:
+                    # Splice banner into the Marty bubble's space-y-2 div
+                    reply = reply.replace('<div class="bg-wmgray-5 rounded-2xl rounded-tl-md px-3.5 py-2.5 max-w-[85%] leading-snug text-[13px] text-wmgray-130 space-y-2">',
+                                          '<div class="bg-wmgray-5 rounded-2xl rounded-tl-md px-3.5 py-2.5 max-w-[85%] leading-snug text-[13px] text-wmgray-130 space-y-2">' + banner, 1)
+                return reply
             except Exception as e:  # pragma: no cover — defensive
                 return _marty(f"Hmm, I tripped on that one. ({html.escape(str(e))})")
-    return reply_default(message)
+    fallback = reply_default(message)
+    if banner:
+        fallback = fallback.replace('<div class="bg-wmgray-5 rounded-2xl rounded-tl-md px-3.5 py-2.5 max-w-[85%] leading-snug text-[13px] text-wmgray-130 space-y-2">',
+                                    '<div class="bg-wmgray-5 rounded-2xl rounded-tl-md px-3.5 py-2.5 max-w-[85%] leading-snug text-[13px] text-wmgray-130 space-y-2">' + banner, 1)
+    return fallback
 
 
 @router.post("/marty/chat")
@@ -471,6 +754,26 @@ async def marty_action(
             <div class="text-[12px] text-wmgray-100">{html.escape(meta["tagline"])}</div>
             <div class="text-[11px] text-wmgray-100">You'll see the change reflected on the <a href="/" class="text-marty-100 font-bold hover:underline">agent overview</a> mode banner.</div>
             '''))
+
+    if action == "bulk_approve_buybox":
+        # Approve all needs_approval buybox-related actions
+        buybox = [a for a in actions_by_status("needs_approval")
+                  if a.action_type in ("buybox_match", "buybox_beat_by_cent", "spip_unsuppress")]
+        ids = [a.id for a in buybox]
+        count = bulk_approve(ids)
+        total = sum(a.expected_gmv_lift_usd for a in buybox)
+        return HTMLResponse(_marty(f'''
+        <div>✅ Approved <strong>{count}</strong> Buy Box recovery action{"s" if count != 1 else ""} —
+        projected <strong class="text-wmgreen-130">+${total:,.0f}</strong> over 30 days.</div>
+        <div class="text-[11px] text-wmgray-100">All reversible from <a href="/agent/history" class="text-marty-100 font-bold hover:underline">action history</a>.</div>
+        '''))
+
+    if action == "stage_aged_buybox_plan":
+        # Future: would compose 3 plan actions. For demo, acknowledge.
+        return HTMLResponse(_marty('''
+        <div>✅ Staged the 3-step plan for the aged-inventory cohort.</div>
+        <div class="text-[12px] text-wmgray-100">You\'ll see the markdown actions in your <a href="/agent/inbox?cohort=inventory_risk" class="text-marty-100 font-bold hover:underline">inbox</a> within a minute, ready for bulk-approve.</div>
+        '''))
 
     if action == "noop":
         return HTMLResponse(_marty("👍 No worries, nothing changed."))
