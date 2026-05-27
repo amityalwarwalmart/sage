@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}{{ a.item_name }} · Agent action{% endblock %}
+{% block content %}
+
+<div class="px-8 py-6 max-w-6xl mx-auto">
+
+  <!-- Breadcrumbs + back -->
+  <div class="flex items-center justify-between mb-4 text-xs text-wmgray-100">
+    <div class="flex items-center gap-1.5">
+      <a href="/" class="hover:underline">Pricing Agent</a>
+      <span>/</span>
+      <a href="/agent/inbox" class="hover:underline">Inbox</a>
+      <span>/</span>
+      <span class="text-wmgray-130 font-semibold">{{ a.action_label }}</span>
+    </div>
+    <a href="/agent/inbox" class="text-wmblue-100 font-bold hover:underline">← Back to inbox</a>
+  </div>
+
+  <!-- ============ Header card ============ -->
+  <div class="bg-white rounded-2xl border border-wmgray-30 p-6 mb-5 card-shadow">
+    <div class="flex items-start gap-5">
+      <div class="text-5xl flex-shrink-0">{{ a.item_image_emoji }}</div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap mb-2">
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded {{ a.tier_meta.tone_class }}">{{ a.tier_meta.label|upper }} RISK · {{ a.tier_meta.behavior }}</span>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-wmgray-10 text-wmgray-130">{{ a.action_icon }} {{ a.action_label }}</span>
+          {% if a.status == 'auto_executed' %}
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-wmgreen-100 text-white">✓ AUTO-EXECUTED</span>
+          {% elif a.status == 'needs_approval' %}
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-spark-100 text-spark-140">⏳ NEEDS YOUR APPROVAL</span>
+          {% elif a.status == 'blocked' %}
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-wmred-100 text-white">🛡️ BLOCKED BY GUARDRAIL</span>
+          {% elif a.status == 'approved' %}
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-wmgreen-100 text-white">✓ APPROVED & SENT TO REPRICER</span>
+          {% elif a.status == 'rejected' %}
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-wmgray-130 text-white">✖ DISMISSED</span>
+          {% endif %}
+          {% if a.reverted %}
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-wmred-100 text-white">↩ ROLLED BACK</span>
+          {% endif %}
+          <span class="text-[10px] text-wmgray-100 ml-auto">Proposed {{ a.age_label }}</span>
+        </div>
+        <h1 class="text-2xl font-extrabold text-wmgray-160 leading-tight">{{ a.item_name }}</h1>
+        <div class="text-xs text-wmgray-100 mt-1 font-mono">{{ a.sku }}</div>
+      </div>
+
+      <!-- Price diff hero -->
+      {% if a.current_price > 0 %}
+      <div class="flex-shrink-0 flex flex-col items-end gap-2">
+        <div class="flex items-center gap-3">
+          <div class="text-center">
+            <div class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider mb-1">Today</div>
+            <div class="text-2xl font-extrabold text-wmgray-160">${{ "%.2f"|format(a.current_price) }}</div>
+          </div>
+          <div class="text-2xl text-wmgray-50">→</div>
+          <div class="text-center">
+            <div class="text-[10px] font-bold uppercase tracking-wider mb-1 {% if a.status == 'blocked' %}text-wmred-130{% else %}text-wmblue-130{% endif %}">{% if a.status == 'blocked' %}Would have been{% else %}Proposed{% endif %}</div>
+            <div class="text-2xl font-extrabold {% if a.status == 'blocked' %}text-wmred-130{% else %}text-wmblue-130{% endif %}">${{ "%.2f"|format(a.proposed_price) }}</div>
+          </div>
+        </div>
+        <div class="text-xs font-bold {% if a.price_delta_pct < 0 %}text-wmred-130{% else %}text-wmgreen-130{% endif %}">
+          {{ "%+.1f"|format(a.price_delta_pct) }}% ({% if a.price_delta_usd < 0 %}-{% else %}+{% endif %}${{ "%.2f"|format(a.price_delta_usd | abs) }})
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ============ Two-column main ============ -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+    <!-- LEFT 2/3 -->
+    <div class="lg:col-span-2 space-y-5">
+
+      <!-- Market signal -->
+      {% if a.market_signal %}
+      <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden">
+        <div class="px-5 py-3 border-b border-wmgray-30 bg-wmgray-5">
+          <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider">📡 What changed in the market</div>
+        </div>
+        <div class="p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <div class="text-[10px] font-bold text-wmgray-100 uppercase">Competitor</div>
+            <div class="text-sm font-bold text-wmgray-160 mt-1">{{ a.market_signal.competitor_name }}</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-bold text-wmgray-100 uppercase">Their price</div>
+            <div class="text-sm font-bold text-wmgray-160 mt-1">${{ "%.2f"|format(a.market_signal.competitor_price) }}</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-bold text-wmgray-100 uppercase">Buy Box right now</div>
+            <div class="text-sm font-bold mt-1
+                        {% if a.market_signal.buybox_winner == 'you' %}text-wmgreen-130{% elif a.market_signal.buybox_winner == 'competitor' %}text-wmred-130{% else %}text-wmgray-100{% endif %}">
+              {% if a.market_signal.buybox_winner == 'you' %}You{% elif a.market_signal.buybox_winner == 'competitor' %}{{ a.market_signal.competitor_name }}{% else %}Nobody{% endif %}
+            </div>
+          </div>
+          <div>
+            <div class="text-[10px] font-bold text-wmgray-100 uppercase">PCS impact</div>
+            <div class="text-sm font-bold mt-1 {% if a.market_signal.pcs_impact_pts < 0 %}text-wmred-130{% else %}text-wmgreen-130{% endif %}">
+              {{ "%+.1f"|format(a.market_signal.pcs_impact_pts) }} pts
+            </div>
+          </div>
+        </div>
+        <div class="px-5 py-2.5 bg-wmgray-5 border-t border-wmgray-30 text-[11px] text-wmgray-100">
+          Signal detected <strong class="text-wmgray-130">{{ a.market_signal.signal_age_minutes }} minutes ago</strong>. Walmart's Buy Box re-checks roughly every 90s on items in this category.
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Reasoning -->
+      <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden">
+        <div class="px-5 py-3 border-b border-wmgray-30 bg-wmgray-5">
+          <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider">🧠 Why Marty proposed this</div>
+        </div>
+        <div class="p-5">
+          <p class="text-wmgray-130 leading-relaxed">{{ a.reason_detail }}</p>
+          <div class="mt-4 pt-4 border-t border-wmgray-30 grid grid-cols-3 gap-4 text-center">
+            <div>
+              <div class="text-xs text-wmgray-100">Confidence</div>
+              <div class="text-lg font-extrabold text-wmgray-160 mt-0.5">{{ a.confidence }}/100</div>
+            </div>
+            <div>
+              <div class="text-xs text-wmgray-100">Expected GMV (30d)</div>
+              <div class="text-lg font-extrabold {% if a.expected_gmv_lift_usd > 0 %}text-wmgreen-130{% else %}text-wmgray-100{% endif %} mt-0.5">
+                {% if a.expected_gmv_lift_usd > 0 %}+${{ "{:,.0f}".format(a.expected_gmv_lift_usd) }}{% else %}—{% endif %}
+              </div>
+            </div>
+            <div>
+              <div class="text-xs text-wmgray-100">Margin impact</div>
+              <div class="text-lg font-extrabold {% if a.expected_margin_delta_usd >= 0 %}text-wmgreen-130{% else %}text-wmred-130{% endif %} mt-0.5">
+                {% if a.expected_margin_delta_usd >= 0 %}+{% else %}-{% endif %}${{ "{:,.0f}".format(a.expected_margin_delta_usd | abs) }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Guardrail check -->
+      <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden">
+        <div class="px-5 py-3 border-b border-wmgray-30 bg-wmgray-5 flex items-center justify-between">
+          <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider">🛡️ Guardrail check ({{ a.guardrails_checked|length }})</div>
+          <div class="text-xs font-bold {% if a.all_guardrails_passed %}text-wmgreen-130{% else %}text-wmred-130{% endif %}">
+            {% if a.all_guardrails_passed %}All passed ✓{% else %}{{ a.guardrails_checked | selectattr('result', 'eq', 'blocked') | list | length }} blocked{% endif %}
+          </div>
+        </div>
+        <div class="divide-y divide-wmgray-30">
+          {% for g in a.guardrails_checked %}
+            <div class="flex items-start gap-3 px-5 py-3">
+              <div class="text-lg flex-shrink-0 mt-0.5">
+                {% if g.result == 'pass' %}<span class="text-wmgreen-130">✓</span>
+                {% elif g.result == 'blocked' %}<span class="text-wmred-130">🛑</span>
+                {% else %}<span class="text-wmgray-100">—</span>{% endif %}
+              </div>
+              <div class="flex-1">
+                <div class="text-sm font-bold {% if g.result == 'blocked' %}text-wmred-130{% else %}text-wmgray-160{% endif %}">{{ g.name }}</div>
+                <div class="text-xs text-wmgray-100 mt-0.5">{{ g.detail }}</div>
+              </div>
+              <div class="text-[10px] font-bold uppercase tracking-wider flex-shrink-0
+                          {% if g.result == 'pass' %}text-wmgreen-130{% elif g.result == 'blocked' %}text-wmred-130{% else %}text-wmgray-100{% endif %}">
+                {{ g.result }}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Simulation (for needs_approval) -->
+      {% if a.status == 'needs_approval' %}
+      <div class="bg-marty-5 rounded-2xl border border-marty-100/30 overflow-hidden">
+        <div class="px-5 py-3 border-b border-marty-100/20">
+          <div class="text-xs font-bold text-marty-130 uppercase tracking-wider">🔮 If you approve this</div>
+        </div>
+        <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-white rounded-xl border border-wmgray-30 p-4">
+            <div class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider mb-1">Price moves to</div>
+            <div class="text-xl font-extrabold text-wmgray-160">${{ "%.2f"|format(a.proposed_price) }}</div>
+            <div class="text-[11px] text-wmgray-100 mt-1">live within ~90 seconds</div>
+          </div>
+          <div class="bg-white rounded-xl border border-wmgray-30 p-4">
+            <div class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider mb-1">Buy Box outcome</div>
+            <div class="text-xl font-extrabold text-wmgreen-130">~{{ a.confidence }}% chance you win it</div>
+            <div class="text-[11px] text-wmgray-100 mt-1">based on past 30d this SKU</div>
+          </div>
+          <div class="bg-white rounded-xl border border-wmgray-30 p-4">
+            <div class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider mb-1">Reversible?</div>
+            <div class="text-xl font-extrabold text-wmgray-160">Yes — 1 click</div>
+            <div class="text-[11px] text-wmgray-100 mt-1">from Action history</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- RIGHT 1/3 -->
+    <div class="space-y-5">
+
+      <!-- Action controls -->
+      <div class="bg-white rounded-2xl border-2 border-wmgray-30 p-5 sticky top-4">
+
+        {% if a.status == 'needs_approval' %}
+          <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-3">Your call</div>
+          <form method="post" action="/agent/action/{{ a.id }}/approve" class="space-y-2">
+            <button type="submit" class="w-full marty-grad text-white font-extrabold py-3 rounded-xl hover:opacity-90 transition">
+              ✓ Approve &amp; send to Repricer
+            </button>
+          </form>
+          <form method="post" action="/agent/action/{{ a.id }}/reject" class="mt-2 space-y-2">
+            <input name="note" placeholder="Optional reason for dismissing…"
+                   class="w-full text-xs border border-wmgray-30 rounded-lg px-3 py-2 focus:outline-none focus:border-wmblue-100">
+            <button type="submit" class="w-full bg-white border-2 border-wmgray-30 hover:border-wmred-100 hover:text-wmred-130 text-wmgray-130 font-bold py-2.5 rounded-xl transition">
+              ✖ Dismiss
+            </button>
+          </form>
+          <div class="text-[11px] text-wmgray-100 mt-3 text-center">
+            <strong class="text-wmgray-130">No silent action.</strong> Anything I do shows up here within seconds.
+          </div>
+
+        {% elif a.status == 'approved' or a.status == 'auto_executed' %}
+          <div class="text-center mb-4">
+            <div class="text-3xl mb-1">✅</div>
+            <div class="font-bold text-wmgreen-130">Live in Repricer</div>
+            <div class="text-xs text-wmgray-100">
+              {% if a.executed_at %}Since {{ a.age_label }}{% endif %}
+            </div>
+          </div>
+          {% if not a.reverted %}
+            <form method="post" action="/agent/action/{{ a.id }}/rollback" class="space-y-2">
+              <input name="note" placeholder="Optional rollback reason…"
+                     class="w-full text-xs border border-wmgray-30 rounded-lg px-3 py-2 focus:outline-none focus:border-wmblue-100">
+              <button type="submit" class="w-full bg-white border-2 border-wmgray-30 hover:border-wmred-100 hover:text-wmred-130 text-wmgray-130 font-bold py-2.5 rounded-xl transition">
+                ↩ Roll back to ${{ "%.2f"|format(a.current_price) }}
+              </button>
+            </form>
+          {% else %}
+            <div class="text-center text-sm text-wmred-130 font-bold">Already rolled back</div>
+            {% if a.revert_reason %}<div class="text-xs text-wmgray-100 italic mt-1 text-center">"{{ a.revert_reason }}"</div>{% endif %}
+          {% endif %}
+
+        {% elif a.status == 'blocked' %}
+          <div class="text-center mb-4">
+            <div class="text-3xl mb-1">🛡️</div>
+            <div class="font-bold text-wmred-130">I stopped myself</div>
+            <div class="text-xs text-wmgray-100 mt-1">A guardrail rule prevented me from acting.</div>
+          </div>
+          <a href="/agent/policy" class="block w-full text-center bg-wmgray-160 hover:bg-wmgray-130 text-white font-bold py-2.5 rounded-xl transition">
+            Review your guardrails
+          </a>
+          <div class="text-[11px] text-wmgray-100 mt-3 text-center">
+            You can raise or lower the floor/ceiling for just this SKU.
+          </div>
+
+        {% elif a.status == 'rejected' %}
+          <div class="text-center mb-2">
+            <div class="text-3xl mb-1">✖</div>
+            <div class="font-bold text-wmgray-130">Dismissed</div>
+            {% if a.revert_reason %}<div class="text-xs text-wmgray-100 italic mt-2">"{{ a.revert_reason }}"</div>{% endif %}
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Action metadata -->
+      <div class="bg-white rounded-2xl border border-wmgray-30 p-5">
+        <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-3">Action details</div>
+        <dl class="space-y-2.5 text-xs">
+          <div class="flex justify-between gap-3">
+            <dt class="text-wmgray-100">Action type</dt>
+            <dd class="font-semibold text-wmgray-160 text-right">{{ a.action_icon }} {{ a.action_label }}</dd>
+          </div>
+          <div class="flex justify-between gap-3">
+            <dt class="text-wmgray-100">Risk tier</dt>
+            <dd class="font-semibold text-wmgray-160 text-right">{{ tier_meta.swatch }} {{ tier_meta.label }} ({{ tier_meta.behavior }})</dd>
+          </div>
+          <div class="flex justify-between gap-3">
+            <dt class="text-wmgray-100">Cohort</dt>
+            <dd class="font-semibold text-wmgray-160 text-right">{{ a.cohort.replace('_', ' ').title() }}</dd>
+          </div>
+          {% if a.floor_price %}
+          <div class="flex justify-between gap-3">
+            <dt class="text-wmgray-100">Your floor</dt>
+            <dd class="font-semibold text-wmgray-160 text-right">${{ "%.2f"|format(a.floor_price) }}</dd>
+          </div>
+          {% endif %}
+          {% if a.ceiling_price %}
+          <div class="flex justify-between gap-3">
+            <dt class="text-wmgray-100">Your ceiling</dt>
+            <dd class="font-semibold text-wmgray-160 text-right">${{ "%.2f"|format(a.ceiling_price) }}</dd>
+          </div>
+          {% endif %}
+          {% if a.cost %}
+          <div class="flex justify-between gap-3">
+            <dt class="text-wmgray-100">Your cost</dt>
+            <dd class="font-semibold text-wmgray-160 text-right">${{ "%.2f"|format(a.cost) }}</dd>
+          </div>
+          {% endif %}
+          {% if a.margin_pct is not none %}
+          <div class="flex justify-between gap-3">
+            <dt class="text-wmgray-100">Margin at proposed</dt>
+            <dd class="font-semibold {% if a.margin_pct >= policy.min_margin_pct %}text-wmgreen-130{% else %}text-wmred-130{% endif %} text-right">{{ "%.1f"|format(a.margin_pct) }}%</dd>
+          </div>
+          {% endif %}
+        </dl>
+      </div>
+
+      <!-- Audit trail -->
+      {% if related_events %}
+      <div class="bg-white rounded-2xl border border-wmgray-30 p-5">
+        <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-3">📜 History</div>
+        <div class="space-y-3">
+          {% for e in related_events %}
+            <div class="flex gap-2 text-xs">
+              <div class="w-1.5 h-1.5 rounded-full {% if e.actor == 'marty' %}bg-marty-100{% else %}bg-wmblue-100{% endif %} mt-1.5 flex-shrink-0"></div>
+              <div>
+                <div class="text-wmgray-130 font-semibold">{{ e.summary }}</div>
+                <div class="text-[10px] text-wmgray-100 mt-0.5">{{ e.actor }} · {{ e.ts.strftime('%b %-d, %-I:%M %p') }}</div>
+                {% if e.note %}<div class="text-[11px] text-wmgray-130 italic mt-0.5">"{{ e.note }}"</div>{% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}

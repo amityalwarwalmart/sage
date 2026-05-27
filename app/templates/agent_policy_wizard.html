@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% block title %}Set up Pricing Agent · Step {{ step }} of {{ total_steps }}{% endblock %}
+{% block content %}
+
+<div class="px-8 py-6 max-w-3xl mx-auto">
+
+  <!-- Progress -->
+  <div class="mb-6">
+    <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl marty-orb"></div>
+        <div>
+          <div class="text-xs font-bold text-marty-130 uppercase tracking-wider">Pricing Agent setup</div>
+          <div class="text-sm text-wmgray-100">About 90 seconds. You can change anything later.</div>
+        </div>
+      </div>
+      <div class="text-sm font-bold text-wmgray-100">Step {{ step }} of {{ total_steps }}</div>
+    </div>
+    <div class="h-1.5 bg-white rounded-full overflow-hidden border border-wmgray-30">
+      <div class="h-full marty-grad transition-all duration-500" style="width: {{ (step / total_steps * 100)|round }}%"></div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-3xl border border-wmgray-30 card-shadow p-9 slide-up">
+
+    {% if step == 1 %}
+      <!-- ============ STEP 1: Goals ============ -->
+      <div class="mb-7">
+        <div class="text-4xl mb-3">🎯</div>
+        <h1 class="text-2xl font-extrabold text-wmgray-160 mb-1">What should I optimize for?</h1>
+        <p class="text-wmgray-100">Pick one or more. When goals conflict (e.g., Buy Box vs margin), I'll lean on the one you list first.</p>
+      </div>
+
+      <form method="post" action="/agent/policy/setup/1" class="space-y-2.5">
+        {% for key, meta in goal_meta.items() %}
+          <label class="wiz-check {% if key in policy.goals %}is-selected{% endif %} block border-2 border-wmgray-30 rounded-2xl p-4 cursor-pointer hover:border-marty-100 transition">
+            <input type="checkbox" name="goals" value="{{ key }}" {% if key in policy.goals %}checked{% endif %} class="hidden">
+            <div class="flex items-center gap-4">
+              <div class="text-2xl">{{ meta.icon }}</div>
+              <div class="flex-1">
+                <div class="font-bold text-wmgray-160">{{ meta.label }}</div>
+                <div class="text-xs text-wmgray-100 mt-0.5">{{ meta.desc }}</div>
+              </div>
+              <div class="wiz-box w-5 h-5 rounded-md border-2 border-wmgray-50 flex-shrink-0 flex items-center justify-center"></div>
+            </div>
+          </label>
+        {% endfor %}
+        <div class="flex justify-end pt-5">
+          <button type="submit" class="px-7 py-3 rounded-xl marty-grad text-white font-extrabold hover:opacity-90">Continue →</button>
+        </div>
+      </form>
+
+    {% elif step == 2 %}
+      <!-- ============ STEP 2: Hard guardrails ============ -->
+      <div class="mb-7">
+        <div class="text-4xl mb-3">🛡️</div>
+        <h1 class="text-2xl font-extrabold text-wmgray-160 mb-1">Your hard guardrails</h1>
+        <p class="text-wmgray-100">I will <em>never</em> cross these lines, even on Autopilot.</p>
+      </div>
+
+      <form method="post" action="/agent/policy/setup/2" class="space-y-6">
+
+        <!-- Min margin -->
+        <div>
+          <label class="font-bold text-wmgray-160 block mb-1">Never set a price that earns me less than…</label>
+          <div class="text-xs text-wmgray-100 mb-3">Applied as a default to every SKU. You can override per-item in Action history.</div>
+          <div class="grid grid-cols-5 gap-2">
+            {% for pct, tag in [(5, ''), (10, ''), (15, 'Recommended ⭐'), (20, ''), (25, 'Safest')] %}
+              <label class="wiz-radio {% if policy.min_margin_pct == pct %}is-selected{% endif %} block border-2 border-wmgray-30 rounded-xl p-3 text-center cursor-pointer hover:border-marty-100 transition">
+                <input type="radio" name="min_margin_pct" value="{{ pct }}" {% if policy.min_margin_pct == pct %}checked{% endif %} class="hidden">
+                <div class="text-xl font-extrabold text-wmgray-160">{{ pct }}%</div>
+                <div class="text-[10px] font-bold text-wmgray-100 mt-1">{{ tag or '\u00a0' }}</div>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Daily movement -->
+        <div>
+          <label class="font-bold text-wmgray-160 block mb-1">Don't move a single SKU more than…</label>
+          <div class="text-xs text-wmgray-100 mb-3">Per day. Stops me from chasing flicker or making a 30% drop in one go.</div>
+          <div class="grid grid-cols-4 gap-2">
+            {% for pct, tag in [(5, 'Tight'), (10, 'Recommended ⭐'), (15, 'Looser'), (25, 'Most flex')] %}
+              <label class="wiz-radio {% if policy.max_daily_movement_pct == pct %}is-selected{% endif %} block border-2 border-wmgray-30 rounded-xl p-3 text-center cursor-pointer hover:border-marty-100 transition">
+                <input type="radio" name="max_daily_movement_pct" value="{{ pct }}" {% if policy.max_daily_movement_pct == pct %}checked{% endif %} class="hidden">
+                <div class="text-xl font-extrabold text-wmgray-160">{{ pct }}%</div>
+                <div class="text-[10px] font-bold text-wmgray-100 mt-1">{{ tag }}</div>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- MAP / MSRP toggles -->
+        <div>
+          <label class="font-bold text-wmgray-160 block mb-1">Brand pricing rules</label>
+          <div class="text-xs text-wmgray-100 mb-3">When the brand publishes a Minimum Advertised Price (MAP) or MSRP.</div>
+          <div class="space-y-2">
+            <label class="flex items-center gap-3 p-3 border border-wmgray-30 rounded-xl cursor-pointer hover:bg-wmgray-5">
+              <input type="checkbox" name="respect_map" value="true" {% if policy.respect_map %}checked{% endif %} class="rounded">
+              <div class="flex-1">
+                <div class="font-bold text-wmgray-160 text-sm">Respect MAP (Minimum Advertised Price)</div>
+                <div class="text-xs text-wmgray-100">Never advertise below the brand's MAP. <em>Strongly recommended for branded goods.</em></div>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 p-3 border border-wmgray-30 rounded-xl cursor-pointer hover:bg-wmgray-5">
+              <input type="checkbox" name="respect_msrp" value="true" {% if policy.respect_msrp %}checked{% endif %} class="rounded">
+              <div class="flex-1">
+                <div class="font-bold text-wmgray-160 text-sm">Respect MSRP as ceiling</div>
+                <div class="text-xs text-wmgray-100">Never raise above the brand's MSRP.</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center pt-5">
+          <a href="/agent/policy/setup/1" class="text-sm font-semibold text-wmgray-100 hover:text-wmgray-130">← Back</a>
+          <button type="submit" class="px-7 py-3 rounded-xl marty-grad text-white font-extrabold hover:opacity-90">Continue →</button>
+        </div>
+      </form>
+
+    {% elif step == 3 %}
+      <!-- ============ STEP 3: Cohorts ============ -->
+      <div class="mb-7">
+        <div class="text-4xl mb-3">📋</div>
+        <h1 class="text-2xl font-extrabold text-wmgray-160 mb-1">Which SKU buckets should I work on?</h1>
+        <p class="text-wmgray-100">Opt in the ones you want me to manage. Mark "always ask" on anything I shouldn't touch without you.</p>
+      </div>
+
+      <form method="post" action="/agent/policy/setup/3" class="space-y-3">
+        {% for c in policy.cohorts %}
+          <div class="border-2 border-wmgray-30 rounded-2xl p-4 hover:border-marty-100/60 transition">
+            <div class="flex items-start gap-3">
+              <div class="flex-1">
+                <div class="font-bold text-wmgray-160">{{ c.label }}</div>
+                <div class="text-xs text-wmgray-100 mt-0.5">{{ c.description }}</div>
+                <div class="text-[11px] font-bold text-wmgray-130 mt-1">{{ "{:,}".format(c.sku_count) }} items</div>
+              </div>
+              <div class="flex gap-1.5 flex-shrink-0">
+                <label class="cohort-pill {% if c.enrolled %}is-on-enroll{% endif %} text-[11px] font-bold px-3 py-1.5 rounded-full border-2 cursor-pointer transition">
+                  <input type="checkbox" name="enrolled_cohorts" value="{{ c.key }}" {% if c.enrolled %}checked{% endif %} class="hidden">
+                  ✓ Opt in
+                </label>
+                <label class="cohort-pill {% if c.excluded %}is-on-exclude{% endif %} text-[11px] font-bold px-3 py-1.5 rounded-full border-2 cursor-pointer transition">
+                  <input type="checkbox" name="excluded_cohorts" value="{{ c.key }}" {% if c.excluded %}checked{% endif %} class="hidden">
+                  🛑 Always ask
+                </label>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+
+        <div class="flex justify-between items-center pt-5">
+          <a href="/agent/policy/setup/2" class="text-sm font-semibold text-wmgray-100 hover:text-wmgray-130">← Back</a>
+          <button type="submit" class="px-7 py-3 rounded-xl marty-grad text-white font-extrabold hover:opacity-90">Continue →</button>
+        </div>
+      </form>
+
+    {% elif step == 4 %}
+      <!-- ============ STEP 4: Mode (rollout staging) ============ -->
+      <div class="mb-7">
+        <div class="text-4xl mb-3">🚦</div>
+        <h1 class="text-2xl font-extrabold text-wmgray-160 mb-1">Last one — how much should I do on my own?</h1>
+        <p class="text-wmgray-100">You can promote me up the ladder anytime once you trust how I'm behaving.</p>
+      </div>
+
+      <form method="post" action="/agent/policy/setup/4" class="space-y-3">
+        {% set modes = [
+          ('shadow',    '👻', 'Recommended for week 1 ⭐', "I'll log what I would do — without making any actual changes. You can compare to what you'd have done."),
+          ('recommend', '🪧', 'Once you trust the patterns', 'Every action — even low-risk ones — waits in your inbox. You bulk-approve.'),
+          ('autopilot', '🤖', 'When you want hands-off', "I auto-execute low-risk actions (within your guardrails). Medium and high still need your sign-off.")
+        ] %}
+        {% for key, icon, tag, desc in modes %}
+          <label class="wiz-radio {% if policy.mode == key %}is-selected{% endif %} block border-2 border-wmgray-30 rounded-2xl p-5 cursor-pointer hover:border-marty-100 transition">
+            <input type="radio" name="mode" value="{{ key }}" {% if policy.mode == key %}checked{% endif %} class="hidden">
+            <div class="flex items-start gap-4">
+              <div class="text-3xl">{{ icon }}</div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <div class="font-bold text-lg text-wmgray-160">{{ all_modes[key].label }}</div>
+                  <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-marty-10 text-marty-130">{{ tag }}</span>
+                </div>
+                <div class="text-sm text-wmgray-100">{{ desc }}</div>
+              </div>
+              <div class="wiz-dot w-6 h-6 rounded-full border-2 border-wmgray-50 flex-shrink-0 mt-0.5 flex items-center justify-center"></div>
+            </div>
+          </label>
+        {% endfor %}
+
+        <div class="flex justify-between items-center pt-5">
+          <a href="/agent/policy/setup/3" class="text-sm font-semibold text-wmgray-100 hover:text-wmgray-130">← Back</a>
+          <button type="submit" class="px-8 py-3.5 rounded-xl marty-grad text-white font-extrabold hover:opacity-90">
+            Start working ✨
+          </button>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+
+  {% if step == 1 %}
+    <div class="text-center mt-5">
+      <a href="/" class="text-xs text-wmgray-100 hover:text-wmgray-130 underline">Skip for now &mdash; I'll use defaults and start in Shadow mode</a>
+    </div>
+  {% endif %}
+</div>
+
+<style>
+  .wiz-check.is-selected, .wiz-radio.is-selected { border-color: #7c3aed !important; background: #f5f0ff; }
+  .wiz-check.is-selected .wiz-box, .wiz-radio.is-selected .wiz-dot { border-color: #7c3aed; background: #7c3aed; }
+  .wiz-check.is-selected .wiz-box::after { content: '✓'; color: white; font-size: 12px; font-weight: bold; }
+  .wiz-radio.is-selected .wiz-dot::after { content: ''; width: 8px; height: 8px; background: white; border-radius: 50%; display: block; }
+  .cohort-pill { border-color: #e1e6ed; color: #5d6878; }
+  .cohort-pill:hover { border-color: #c1c7d0; }
+  .cohort-pill.is-on-enroll { background: #d6f0c8; border-color: #2a8703; color: #1f6602; }
+  .cohort-pill.is-on-exclude { background: #fde0dc; border-color: #ea1100; color: #b50e00; }
+</style>
+
+<script>
+  // Click anywhere on cards / pills to toggle their inputs
+  document.querySelectorAll('label.wiz-check').forEach(l => {
+    l.addEventListener('click', () => {
+      const input = l.querySelector('input');
+      // checkbox: let native toggle, then sync class
+      setTimeout(() => l.classList.toggle('is-selected', input.checked), 0);
+    });
+  });
+  document.querySelectorAll('label.wiz-radio').forEach(l => {
+    l.addEventListener('click', () => {
+      const input = l.querySelector('input');
+      if (!input || input.type !== 'radio') return;
+      document.querySelectorAll(`input[name="${input.name}"]`).forEach(i => i.closest('label').classList.remove('is-selected'));
+      l.classList.add('is-selected');
+      input.checked = true;
+    });
+  });
+  document.querySelectorAll('label.cohort-pill').forEach(l => {
+    l.addEventListener('click', () => {
+      const input = l.querySelector('input');
+      const isEnroll = input.name === 'enrolled_cohorts';
+      setTimeout(() => {
+        if (isEnroll) {
+          l.classList.toggle('is-on-enroll', input.checked);
+          // mutually exclusive with always-ask
+          if (input.checked) {
+            const ex = l.parentElement.querySelector('input[name="excluded_cohorts"]');
+            if (ex && ex.checked) { ex.checked = false; ex.closest('label').classList.remove('is-on-exclude'); }
+          }
+        } else {
+          l.classList.toggle('is-on-exclude', input.checked);
+          if (input.checked) {
+            const en = l.parentElement.querySelector('input[name="enrolled_cohorts"]');
+            if (en && en.checked) { en.checked = false; en.closest('label').classList.remove('is-on-enroll'); }
+          }
+        }
+      }, 0);
+    });
+  });
+</script>
+{% endblock %}

@@ -669,6 +669,39 @@ def _seed_actions() -> list[PricingAction]:
 ACTIONS: list[PricingAction] = _seed_actions()
 
 
+# --- Audit log (every state change Marty makes or seller takes) ---
+
+@dataclass
+class AuditEvent:
+    id: str
+    ts: datetime
+    actor: Literal["marty", "seller"]
+    verb: str        # "executed", "approved", "rejected", "rolled_back", "blocked", "shadow_logged"
+    action_id: str
+    summary: str
+    note: str = ""
+
+
+def _seed_audit() -> list[AuditEvent]:
+    now = datetime.now()
+    log: list[AuditEvent] = []
+    for a in ACTIONS:
+        if a.status == "auto_executed":
+            log.append(AuditEvent(_aid(), a.executed_at or a.created_at, "marty", "executed",
+                                  a.id, f"Auto-executed {a.action_label} on {a.item_name} — {a.reason_oneliner}"))
+        elif a.status == "blocked":
+            log.append(AuditEvent(_aid(), a.created_at, "marty", "blocked",
+                                  a.id, f"Blocked by guardrail on {a.item_name} — {a.reason_oneliner}"))
+        elif a.status == "rejected":
+            log.append(AuditEvent(_aid(), a.created_at + timedelta(minutes=18), "seller", "rejected",
+                                  a.id, f"Seller rejected {a.action_label} on {a.item_name}",
+                                  note=a.revert_reason or ""))
+    return sorted(log, key=lambda e: e.ts, reverse=True)
+
+
+AUDIT: list[AuditEvent] = _seed_audit()
+
+
 # --- KPI helpers ---
 
 def run_stats() -> AgentRunStat:
@@ -709,12 +742,14 @@ def set_mode(mode: AgentMode) -> None:
     # but the running banner should reflect new mode immediately.
 
 
-def approve_action(aid: str) -> bool:
+def approve_action(aid: str, note: str = "") -> bool:
     a = action_by_id(aid)
     if not a or a.status not in ("needs_approval",):
         return False
     a.status = "approved"
     a.executed_at = datetime.now()
+    AUDIT.insert(0, AuditEvent(_aid(), datetime.now(), "seller", "approved", a.id,
+                               f"Approved {a.action_label} on {a.item_name}", note=note))
     return True
 
 
@@ -724,6 +759,8 @@ def reject_action(aid: str, note: str = "") -> bool:
         return False
     a.status = "rejected"
     a.revert_reason = note
+    AUDIT.insert(0, AuditEvent(_aid(), datetime.now(), "seller", "rejected", a.id,
+                               f"Rejected {a.action_label} on {a.item_name}", note=note))
     return True
 
 
@@ -733,4 +770,22 @@ def rollback_action(aid: str, note: str = "") -> bool:
         return False
     a.reverted = True
     a.revert_reason = note or "Seller rolled back"
+    AUDIT.insert(0, AuditEvent(_aid(), datetime.now(), "seller", "rolled_back", a.id,
+                               f"Rolled back {a.action_label} on {a.item_name}", note=note))
     return True
+
+
+def bulk_approve(action_ids: list[str]) -> int:
+    count = 0
+    for aid in action_ids:
+        if approve_action(aid):
+            count += 1
+    return count
+
+
+def bulk_reject(action_ids: list[str], note: str = "") -> int:
+    count = 0
+    for aid in action_ids:
+        if reject_action(aid, note=note):
+            count += 1
+    return count

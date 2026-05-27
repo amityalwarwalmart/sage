@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Policy & guardrails · Pricing Agent{% endblock %}
+{% block content %}
+
+<div class="px-8 py-6 max-w-5xl mx-auto">
+
+  <div class="flex items-start justify-between gap-6 mb-5">
+    <div>
+      <div class="text-xs font-bold text-marty-130 uppercase tracking-wider mb-1">Pricing Agent</div>
+      <h1 class="text-3xl font-extrabold text-wmgray-160">Policy &amp; guardrails</h1>
+      <p class="text-wmgray-100 mt-1">What I'm trying to do for you — and the lines I'll never cross.</p>
+    </div>
+    <form method="post" action="/agent/policy/reset">
+      <button type="submit" class="px-4 py-2 rounded-lg border border-wmgray-30 text-sm font-bold text-wmgray-130 hover:bg-wmgray-5">
+        Re-run setup wizard
+      </button>
+    </form>
+  </div>
+
+  <!-- Mode (top-of-page reminder) -->
+  <div class="mb-5 rounded-2xl overflow-hidden border-2 {% if policy.mode == 'shadow' %}border-wmgray-160{% elif policy.mode == 'recommend' %}border-spark-100{% else %}border-wmblue-100{% endif %}">
+    <div class="flex">
+      <div class="mode-{{ policy.mode }} px-5 py-3 flex items-center gap-3 flex-shrink-0 w-56">
+        <div class="text-2xl">{% if policy.mode == 'shadow' %}👻{% elif policy.mode == 'recommend' %}🪧{% else %}🤖{% endif %}</div>
+        <div>
+          <div class="text-[10px] font-bold uppercase opacity-80">Current mode</div>
+          <div class="text-xl font-extrabold">{{ mode_meta.label }}</div>
+        </div>
+      </div>
+      <div class="flex-1 px-5 py-3 bg-white text-sm text-wmgray-130 flex items-center">{{ mode_meta.tagline }}</div>
+    </div>
+  </div>
+
+  <!-- Two columns -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+    <!-- Goals -->
+    <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden">
+      <div class="px-5 py-4 border-b border-wmgray-30">
+        <div class="font-bold text-wmgray-160">🎯 Your goals</div>
+        <div class="text-xs text-wmgray-100">When these conflict, I prioritize them in the order shown.</div>
+      </div>
+      <div class="p-4 space-y-2">
+        {% for g in policy.goals %}
+          <div class="flex items-center gap-3 p-3 border border-wmgray-30 rounded-xl">
+            <div class="text-xl">{{ goal_meta[g].icon }}</div>
+            <div class="flex-1">
+              <div class="font-bold text-sm text-wmgray-160">{{ goal_meta[g].label }}</div>
+              <div class="text-xs text-wmgray-100">{{ goal_meta[g].desc }}</div>
+            </div>
+            <div class="text-[10px] font-bold text-wmgray-100">#{{ loop.index }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Hard guardrails -->
+    <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden">
+      <div class="px-5 py-4 border-b border-wmgray-30">
+        <div class="font-bold text-wmgray-160">🛡️ Hard guardrails</div>
+        <div class="text-xs text-wmgray-100">I will never cross these, even on Autopilot.</div>
+      </div>
+      <div class="divide-y divide-wmgray-30 text-sm">
+        <div class="px-5 py-3 flex items-center justify-between"><span class="text-wmgray-130">Minimum margin</span> <span class="font-bold text-wmgray-160">{{ policy.min_margin_pct }}%</span></div>
+        <div class="px-5 py-3 flex items-center justify-between"><span class="text-wmgray-130">Max daily price movement</span> <span class="font-bold text-wmgray-160">{{ policy.max_daily_movement_pct }}%</span></div>
+        <div class="px-5 py-3 flex items-center justify-between"><span class="text-wmgray-130">Max actions per SKU per day</span> <span class="font-bold text-wmgray-160">{{ policy.max_actions_per_sku_per_day }}</span></div>
+        <div class="px-5 py-3 flex items-center justify-between"><span class="text-wmgray-130">Respect MAP</span> <span class="font-bold {% if policy.respect_map %}text-wmgreen-130{% else %}text-wmred-130{% endif %}">{% if policy.respect_map %}On ✓{% else %}Off{% endif %}</span></div>
+        <div class="px-5 py-3 flex items-center justify-between"><span class="text-wmgray-130">Respect MSRP as ceiling</span> <span class="font-bold {% if policy.respect_msrp %}text-wmgreen-130{% else %}text-wmred-130{% endif %}">{% if policy.respect_msrp %}On ✓{% else %}Off{% endif %}</span></div>
+        <div class="px-5 py-3 flex items-center justify-between"><span class="text-wmgray-130">Auto-approve threshold</span> <span class="font-bold text-wmgray-160">${{ "{:,.0f}".format(policy.auto_approve_below_usd) }}</span></div>
+      </div>
+    </div>
+
+    <!-- Cohorts (full width) -->
+    <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden lg:col-span-2">
+      <div class="px-5 py-4 border-b border-wmgray-30">
+        <div class="font-bold text-wmgray-160">📋 SKU cohorts</div>
+        <div class="text-xs text-wmgray-100">Where I'm allowed to work — and what I always check with you first.</div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 divide-x divide-y divide-wmgray-30">
+        {% for c in policy.cohorts %}
+          <div class="px-5 py-3 flex items-start gap-3">
+            <div class="text-xl flex-shrink-0 mt-0.5">
+              {% if c.enrolled %}✓{% elif c.excluded %}🛑{% else %}—{% endif %}
+            </div>
+            <div class="flex-1">
+              <div class="text-sm font-bold text-wmgray-160">{{ c.label }}</div>
+              <div class="text-xs text-wmgray-100">{{ c.description }}</div>
+              <div class="text-[11px] font-bold text-wmgray-130 mt-1">{{ "{:,}".format(c.sku_count) }} items</div>
+            </div>
+            <div class="text-[10px] font-bold px-2 py-0.5 rounded-full
+                        {% if c.enrolled %}bg-wmgreen-10 text-wmgreen-130{% elif c.excluded %}bg-wmred-10 text-wmred-130{% else %}bg-wmgray-10 text-wmgray-100{% endif %}">
+              {% if c.enrolled %}Opted in{% elif c.excluded %}Always ask{% else %}Not enrolled{% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

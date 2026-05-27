@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Agent inbox · Pricing Agent{% endblock %}
+{% block content %}
+
+<div class="px-8 py-6 max-w-7xl mx-auto">
+
+  <!-- ============ Header ============ -->
+  <div class="flex items-start justify-between gap-6 mb-5">
+    <div>
+      <div class="text-xs font-bold text-marty-130 uppercase tracking-wider mb-1">Pricing Agent · powered by Marty</div>
+      <h1 class="text-3xl font-extrabold text-wmgray-160">Agent inbox</h1>
+      <p class="text-wmgray-100 mt-1">Triage what the agent's doing, what's waiting on you, and what it stopped.</p>
+    </div>
+    <div class="flex items-center gap-3 flex-shrink-0">
+      <div class="text-right">
+        <div class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider">Mode</div>
+        <div class="px-2.5 py-1 rounded text-xs font-bold mode-{{ policy.mode }} inline-block">{{ mode_meta.label }}</div>
+      </div>
+      <a href="/" class="text-sm font-bold text-wmblue-100 hover:underline">← Agent overview</a>
+    </div>
+  </div>
+
+  <!-- ============ Tabs ============ -->
+  <div class="bg-white rounded-t-2xl border border-wmgray-30 border-b-0 flex overflow-x-auto scrollbar-thin">
+    {% for tab_key, tab_label, tab_emoji, tab_color in tabs %}
+      {% set is_active = tab == tab_key %}
+      <a href="/agent/inbox?tab={{ tab_key }}"
+         class="flex items-center gap-2 px-5 py-3.5 border-b-2 whitespace-nowrap flex-shrink-0 transition
+                {% if is_active %}border-marty-100 text-wmgray-160 font-bold bg-marty-5{% else %}border-transparent text-wmgray-100 hover:text-wmgray-160 hover:bg-wmgray-5{% endif %}">
+        <span>{{ tab_emoji }}</span>
+        <span>{{ tab_label }}</span>
+        <span class="text-xs font-bold px-1.5 py-0.5 rounded
+                     {% if is_active %}bg-marty-100 text-white{% else %}bg-wmgray-10 text-wmgray-130{% endif %}">
+          {{ tab_counts[tab_key] }}
+        </span>
+      </a>
+    {% endfor %}
+  </div>
+
+  <!-- ============ Filter bar ============ -->
+  <div class="bg-wmgray-5 border-l border-r border-wmgray-30 px-5 py-3 flex items-center gap-3 flex-wrap">
+    <span class="text-xs font-bold text-wmgray-100 uppercase tracking-wider">Filter:</span>
+
+    <!-- Cohort filter -->
+    <form method="get" action="/agent/inbox" class="flex items-center gap-2">
+      <input type="hidden" name="tab" value="{{ tab }}">
+      <input type="hidden" name="tier" value="{{ selected_tier }}">
+      <input type="hidden" name="action_type" value="{{ selected_action_type }}">
+      <select name="cohort" onchange="this.form.submit()"
+              class="text-xs font-semibold border border-wmgray-30 rounded-lg px-2.5 py-1.5 bg-white">
+        {% for key, label in cohort_opts %}
+          <option value="{{ key }}" {% if selected_cohort == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </form>
+
+    <!-- Tier filter chips -->
+    <div class="flex gap-1">
+      {% for t_key, t_label in [('all', 'All tiers'), ('low', '🟢 Low'), ('medium', '🟡 Medium'), ('high', '🔴 High')] %}
+        <a href="/agent/inbox?tab={{ tab }}&cohort={{ selected_cohort }}&tier={{ t_key }}&action_type={{ selected_action_type }}"
+           class="px-2.5 py-1 rounded-full text-xs font-bold border transition
+                  {% if selected_tier == t_key %}bg-wmgray-160 text-white border-wmgray-160{% else %}bg-white text-wmgray-130 border-wmgray-30 hover:border-wmgray-100{% endif %}">
+          {{ t_label }}
+        </a>
+      {% endfor %}
+    </div>
+
+    <!-- Action type filter -->
+    {% if action_type_opts|length > 2 %}
+      <form method="get" action="/agent/inbox" class="flex items-center gap-2">
+        <input type="hidden" name="tab" value="{{ tab }}">
+        <input type="hidden" name="cohort" value="{{ selected_cohort }}">
+        <input type="hidden" name="tier" value="{{ selected_tier }}">
+        <select name="action_type" onchange="this.form.submit()"
+                class="text-xs font-semibold border border-wmgray-30 rounded-lg px-2.5 py-1.5 bg-white">
+          {% for key, label in action_type_opts %}
+            <option value="{{ key }}" {% if selected_action_type == key %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    {% endif %}
+
+    <div class="ml-auto text-xs text-wmgray-100">
+      Showing <strong class="text-wmgray-160">{{ row_count }}</strong> action{% if row_count != 1 %}s{% endif %}
+    </div>
+  </div>
+
+  <!-- ============ Bulk-action bar (only on Needs approval) ============ -->
+  {% if tab == 'needs_approval' and rows %}
+  <form id="bulk-form" method="post" action="/agent/inbox/bulk"
+        class="bg-marty-5 border-l border-r border-wmgray-30 px-5 py-2.5 flex items-center gap-3 text-sm">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <input type="checkbox" id="select-all" onclick="toggleAll(this)" class="rounded">
+    <label for="select-all" class="text-xs font-bold text-wmgray-130">Select all</label>
+    <span id="selected-count" class="text-xs text-wmgray-100">0 selected</span>
+    <div class="ml-auto flex items-center gap-2">
+      <button type="submit" name="op" value="approve"
+              class="px-4 py-1.5 rounded-lg bg-wmgreen-100 hover:bg-wmgreen-130 text-white text-xs font-bold disabled:opacity-50"
+              id="bulk-approve" disabled>
+        ✓ Approve selected
+      </button>
+      <button type="submit" name="op" value="reject"
+              class="px-4 py-1.5 rounded-lg bg-white border border-wmgray-30 hover:border-wmred-100 hover:text-wmred-130 text-wmgray-130 text-xs font-bold disabled:opacity-50"
+              id="bulk-reject" disabled>
+        ✖ Reject selected
+      </button>
+    </div>
+  </form>
+  {% endif %}
+
+  <!-- ============ Rows ============ -->
+  <div class="bg-white border border-wmgray-30 {% if tab == 'needs_approval' and rows %}rounded-b-2xl{% else %}rounded-b-2xl{% endif %}">
+    {% if not rows %}
+      <div class="px-8 py-16 text-center">
+        <div class="text-5xl mb-3">🎉</div>
+        <div class="font-bold text-wmgray-160 mb-1">Nothing here</div>
+        <div class="text-sm text-wmgray-100">All caught up on this tab. Check the other tabs or come back later.</div>
+      </div>
+    {% else %}
+      {% for a in rows %}
+        <div class="flex items-start gap-3 px-5 py-3.5 border-t border-wmgray-30 first:border-t-0 hover:bg-wmgray-5/50">
+          {% if tab == 'needs_approval' %}
+            <input type="checkbox" form="bulk-form" name="action_ids" value="{{ a.id }}"
+                   onchange="updateSelectedCount()" class="row-check mt-1.5 flex-shrink-0 rounded">
+          {% endif %}
+          <div class="text-2xl flex-shrink-0 mt-0.5">{{ a.item_image_emoji }}</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {{ a.tier_meta.tone_class }}">{{ a.tier_meta.label|upper }} · {{ a.tier_meta.behavior }}</span>
+              <span class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider">{{ a.action_icon }} {{ a.action_label }}</span>
+              {% if a.market_signal %}
+                <span class="text-[10px] text-wmgray-100">· signal from {{ a.market_signal.competitor_name }} {{ a.market_signal.signal_age_minutes }}m ago</span>
+              {% endif %}
+              <span class="text-[10px] text-wmgray-100 ml-auto">{{ a.age_label }}</span>
+            </div>
+            <a href="/agent/action/{{ a.id }}" class="text-sm font-semibold text-wmgray-160 hover:text-wmblue-100 truncate block">{{ a.item_name }}</a>
+            <div class="text-xs text-wmgray-100 mt-0.5 leading-snug">{{ a.reason_oneliner }}</div>
+            <!-- Guardrail mini-summary -->
+            <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+              {% for g in a.guardrails_checked %}
+                <span class="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1
+                             {% if g.result == 'pass' %}bg-wmgreen-10 text-wmgreen-130{% elif g.result == 'blocked' %}bg-wmred-10 text-wmred-130{% else %}bg-wmgray-10 text-wmgray-100{% endif %}">
+                  {% if g.result == 'pass' %}✓{% elif g.result == 'blocked' %}🛑{% else %}—{% endif %} {{ g.name }}
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+          <!-- Price diff -->
+          {% if a.current_price > 0 %}
+            <div class="text-right flex-shrink-0 flex flex-col items-end gap-1">
+              <div class="flex items-center gap-1.5 text-xs">
+                <span class="bubble-current px-2 py-0.5 rounded font-bold">${{ "%.2f"|format(a.current_price) }}</span>
+                <span class="text-wmgray-100">→</span>
+                <span class="{% if a.status == 'blocked' %}bubble-blocked{% else %}bubble-proposed{% endif %} px-2 py-0.5 rounded font-bold">${{ "%.2f"|format(a.proposed_price) }}</span>
+              </div>
+              <div class="text-[10px] {% if a.price_delta_pct < 0 %}text-wmred-130{% else %}text-wmgreen-130{% endif %} font-bold">
+                {{ "%+.1f"|format(a.price_delta_pct) }}%
+              </div>
+            </div>
+          {% else %}
+            <div class="text-right flex-shrink-0">
+              <div class="text-[10px] text-wmgray-100">Bulk action</div>
+            </div>
+          {% endif %}
+          <!-- $ impact + open -->
+          <div class="text-right flex-shrink-0 w-28">
+            <div class="text-sm font-extrabold {% if a.expected_gmv_lift_usd > 0 %}text-wmgreen-130{% else %}text-wmgray-100{% endif %}">
+              {% if a.expected_gmv_lift_usd > 0 %}+${{ "{:,.0f}".format(a.expected_gmv_lift_usd) }}{% else %}—{% endif %}
+            </div>
+            <a href="/agent/action/{{ a.id }}" class="text-[10px] font-bold text-wmblue-100 hover:underline">Open →</a>
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <!-- ============ Footer note ============ -->
+  {% if tab == 'needs_approval' and rows %}
+    <div class="text-center text-xs text-wmgray-100 mt-4">
+      Approving sends the change to Repricer. You can roll back any single action from <a href="/agent/history" class="text-wmblue-100 hover:underline font-bold">Action history</a>.
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  function updateSelectedCount() {
+    const checks = document.querySelectorAll('.row-check:checked');
+    const n = checks.length;
+    document.getElementById('selected-count').textContent = `${n} selected`;
+    document.getElementById('bulk-approve').disabled = n === 0;
+    document.getElementById('bulk-reject').disabled = n === 0;
+  }
+  function toggleAll(master) {
+    document.querySelectorAll('.row-check').forEach(c => c.checked = master.checked);
+    updateSelectedCount();
+  }
+</script>
+
+{% endblock %}

@@ -1,30 +1,33 @@
-"""Marty Pricing Agent — FastAPI app entrypoint.
-
-Wave A: only the agent overview + mode toggle + stubs are wired.
-Wave B will add the inbox, policy wizard, action detail.
-Wave C will fill in Marty chat with the killer flows.
-"""
-from fastapi import APIRouter, FastAPI, Form, Request
+"""Marty Pricing Agent — FastAPI app entrypoint."""
+from fastapi import FastAPI, Form
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.data.marty import POLICY, set_mode
-from app.routers import agent_overview
-from app.templates_env import templates
+from app.data.marty import set_mode
+from app.routers import (
+    agent_action,
+    agent_history,
+    agent_inbox,
+    agent_overview,
+    agent_policy,
+)
 
 app = FastAPI(title="Marty Pricing Agent · Walmart Seller Center")
 
-# ---------- Static (optional — falls back gracefully if missing) ----------
+# Static (graceful fallback if dir missing)
 try:
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
 except Exception:
     pass
 
-# ---------- Wave A: overview + mode ----------
+# Routers
 app.include_router(agent_overview.router)
+app.include_router(agent_inbox.router)
+app.include_router(agent_action.router)
+app.include_router(agent_policy.router)
+app.include_router(agent_history.router)
 
 
-# Mode toggle (PRD: Shadow → Recommend → Autopilot)
 @app.post("/agent/mode")
 async def change_mode(mode: str = Form(...)):
     if mode in ("shadow", "recommend", "autopilot"):
@@ -32,45 +35,8 @@ async def change_mode(mode: str = Form(...)):
     return RedirectResponse("/", status_code=303)
 
 
-# ---------- Stub router for Wave B/C surfaces ----------
-stubs = APIRouter()
-
-
-@stubs.get("/agent/inbox")
-@stubs.get("/agent/policy")
-@stubs.get("/agent/history")
-async def stub(request: Request):
-    path = request.url.path
-    label = {
-        "/agent/inbox":   ("Agent inbox",          "Auto-executed · Needs approval · Dismissed tabs with cohort filters."),
-        "/agent/policy":  ("Policy & guardrails",  "Setup wizard: goals, floors, velocity caps, MAP/MSRP, hero-SKU exclusions, blackout dates."),
-        "/agent/history": ("Action history",       "Full audit log with one-click rollback + shadow-mode counterfactual."),
-    }.get(path, ("Coming soon", ""))
-    return templates.TemplateResponse(request=request, name="stub.html", context={
-        "request": request,
-        "active_page": "pricing",
-        "sub_page": "agent",
-        "active_sub_sub": path.split("/")[-1],
-        "title": label[0],
-        "blurb": label[1],
-    })
-
-
-@stubs.get("/agent/action/{aid}")
-async def action_stub(request: Request, aid: str):
-    from app.data.marty import action_by_id
-    a = action_by_id(aid)
-    return templates.TemplateResponse(request=request, name="stub.html", context={
-        "request": request,
-        "active_page": "pricing",
-        "sub_page": "agent",
-        "active_sub_sub": "inbox",
-        "title": f"Action detail · {aid}",
-        "blurb": f"Coming in Wave B. Will show market signal, guardrail checks, simulation, and approve/reject/rollback controls for: {a.item_name if a else aid}",
-    })
-
-
-@stubs.post("/marty/chat")
+# Marty chat stub (Wave C will fill in)
+@app.post("/marty/chat")
 async def marty_chat_stub(message: str = Form(...)):
     from fastapi.responses import HTMLResponse
     import html
@@ -81,11 +47,8 @@ async def marty_chat_stub(message: str = Form(...)):
     <div class="flex gap-2">
       <div class="w-7 h-7 rounded-xl marty-orb flex-shrink-0"></div>
       <div class="bg-wmgray-5 rounded-2xl rounded-tl-md px-3.5 py-2.5 max-w-[85%] leading-snug text-[13px]">
-        Killer chat flows coming in Wave C — "Show me what the agent did today" (daily digest), bulk approvals, and per-action explanations. For now, head to the
-        <a href="/agent/inbox" class="text-marty-100 font-bold hover:underline">agent inbox</a>.
+        Conversational flows (daily digest, "why did you drop X?", bulk approvals) coming in Wave C. For now, head to the
+        <a href="/agent/inbox" class="text-marty-100 font-bold hover:underline">agent inbox</a> or <a href="/agent/policy" class="text-marty-100 font-bold hover:underline">policy</a>.
       </div>
     </div>
     ''')
-
-
-app.include_router(stubs)
