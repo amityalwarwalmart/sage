@@ -227,22 +227,24 @@
   <div id="marty-thread" class="flex-1 overflow-y-auto px-5 py-5 space-y-4 scrollbar-thin text-[14px]">
     <div class="text-3xl font-bold marty-shimmer">Hi,</div>
     <p class="text-wmgray-130 leading-relaxed">
-      I'm Marty — your AI assistant. I just gained <strong>Pricing Agent</strong> superpowers. Want me to walk you through what I'm watching for you?
+      I'm Marty — your AI assistant. I just gained <strong>Pricing Agent</strong> superpowers. Want me to walk you through what I'm watching?
     </p>
 
     <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mt-4 mb-2">Try asking:</div>
     <div class="space-y-2">
       <button type="button" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-wmgray-30 text-[13px] hover:border-marty-100 hover:bg-marty-5 transition"
-              onclick="askMarty('Show me what the agent did today')">Show me what the agent did today</button>
+              onclick="askMarty('Show me what you did today')">📊 Show me what you did today</button>
       <button type="button" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-wmgray-30 text-[13px] hover:border-marty-100 hover:bg-marty-5 transition"
-              onclick="askMarty('Why is my Buy Box win rate so low?')">Why is my Buy Box win rate so low?</button>
+              onclick="askMarty('What needs my approval?')">⏳ What needs my approval?</button>
       <button type="button" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-wmgray-30 text-[13px] hover:border-marty-100 hover:bg-marty-5 transition"
-              onclick="askMarty('What needs my approval right now?')">What needs my approval right now?</button>
+              onclick="askMarty(\"What's my biggest risk right now?\")">⚠️ What's my biggest risk right now?</button>
+      <button type="button" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-wmgray-30 text-[13px] hover:border-marty-100 hover:bg-marty-5 transition"
+              onclick="askMarty('Why did you drop Garnier?')">🤔 Why did you drop Garnier?</button>
     </div>
 
     <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mt-5 mb-2">Or explore:</div>
     <div class="flex flex-wrap gap-1.5">
-      {% for chip in ['Catalog', 'Pricing', 'Orders', 'WFS', 'Growth'] %}
+      {% for chip, ask in [('Catalog', 'Go to catalog'), ('Pricing', 'Open pricing'), ('Orders', 'Show orders'), ('WFS', 'WFS overview'), ('Growth', 'Growth tools')] %}
         <span class="text-[11px] px-2.5 py-1 rounded-full border border-wmgray-30 text-wmgray-130 hover:border-marty-100 hover:text-marty-100 cursor-pointer">{{ chip }}</span>
       {% endfor %}
     </div>
