@@ -10,6 +10,7 @@ from app.routers import (
     agent_inbox,
     agent_overview,
     agent_policy,
+    agent_rules,
     marty_chat,
 )
 
@@ -27,6 +28,7 @@ app.include_router(agent_inbox.router)
 app.include_router(agent_action.router)
 app.include_router(agent_policy.router)
 app.include_router(agent_history.router)
+app.include_router(agent_rules.router)
 app.include_router(marty_chat.router)
 
 

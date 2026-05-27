@@ -179,6 +179,12 @@
             <span class="w-1 h-1 rounded-full {% if active_sub_sub == 'policy' %}bg-wmblue-100{% else %}border border-wmgray-50{% endif %}"></span>
             <span>Policy &amp; guardrails</span>
           </a>
+          <a href="/agent/rules" class="flex items-center gap-3 pl-16 pr-5 py-1 text-[12px] transition
+                    {% if active_sub_sub == 'rules' %}text-wmblue-100 font-semibold{% else %}text-wmgray-130 hover:bg-wmgray-5{% endif %}">
+            <span class="w-1 h-1 rounded-full {% if active_sub_sub == 'rules' %}bg-wmblue-100{% else %}border border-wmgray-50{% endif %}"></span>
+            <span class="flex-1">Repricing rules</span>
+            <span class="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-marty-100 text-white">NEW</span>
+          </a>
           <a href="/agent/history" class="flex items-center gap-3 pl-16 pr-5 py-1 text-[12px] transition
                     {% if active_sub_sub == 'history' %}text-wmblue-100 font-semibold{% else %}text-wmgray-130 hover:bg-wmgray-5{% endif %}">
             <span class="w-1 h-1 rounded-full {% if active_sub_sub == 'history' %}bg-wmblue-100{% else %}border border-wmgray-50{% endif %}"></span>
@@ -251,6 +257,10 @@
       <button type="button" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-wmgray-30 text-[13px] hover:border-marty-100 hover:bg-marty-5 transition"
               onclick="askMarty('Show me what you did today')">
         📊 <strong>What you did today</strong>
+      </button>
+      <button type="button" class="w-full text-left px-3.5 py-2.5 rounded-xl border border-wmgray-30 text-[13px] hover:border-marty-100 hover:bg-marty-5 transition"
+              onclick="askMarty('Create a rule for aged inventory')">
+        📜 <strong>Create a rule for aged inventory</strong> <span class="text-[10px] text-marty-130 font-bold">NEW</span>
       </button>
     </div>
 

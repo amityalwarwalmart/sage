@@ -30,6 +30,8 @@ from app.data.marty import (
     MODE_META,
     POLICY,
     QUERY_INTENT_PHRASES,
+    RULE_TEMPLATES,
+    RULES,
     TIER_META,
     PricingAction,
     actions_by_status,
@@ -521,6 +523,98 @@ def reply_high_margin() -> str:
     ''')
 
 
+# ---------- Rules intents ----------
+
+def reply_rules_overview() -> str:
+    """List active rules + offer to create from template."""
+    actives = [r for r in RULES if r.status == "active"]
+    total_fired = sum(r.actions_fired_7d for r in RULES)
+    total_gmv = sum(r.gmv_impact_7d_usd for r in RULES)
+    rule_lines = "".join(
+        f'<div class="bg-white rounded-lg border border-wmgray-30 p-2.5 text-[12px]">'
+        f'<div class="flex items-center gap-1.5 mb-0.5">'
+        f'<span class="text-[9px] font-bold px-1 py-0.5 rounded {r.tier_meta["tone_class"]}">{r.tier_meta["label"].upper()}</span>'
+        f'<a href="/agent/rules/{r.id}" class="font-bold text-wmgray-160 hover:text-marty-130 truncate">{html.escape(r.name)}</a>'
+        f'</div>'
+        f'<div class="text-[11px] text-wmgray-100 italic">“{html.escape(r.plain_english)}”</div>'
+        f'<div class="text-[10px] text-wmgray-100 mt-1">{r.actions_fired_7d} fired · 7d · +${r.gmv_impact_7d_usd:,.0f}</div>'
+        f'</div>'
+        for r in actives[:3]
+    )
+    return _marty(f'''
+    <div class="font-bold text-wmgray-160">📜 Your active repricing rules ({len(actives)})</div>
+    <div class="text-[12px]">
+      Combined: <strong>{total_fired}</strong> actions fired in the last 7 days, with about
+      <strong class="text-wmgreen-130">+${total_gmv:,.0f}</strong> GMV impact.
+    </div>
+    {rule_lines}
+    <div class="flex gap-1.5 pt-1">
+      {_link_btn("Open all rules →", "/agent/rules")}
+      {_link_btn("+ Create new rule", "/agent/rules/new")}
+    </div>
+    {_suggestions([
+        ("Aged inventory rule", "Create a rule for aged inventory"),
+        ("Buy Box recovery rule", "Create a rule for losing Buy Box"),
+        ("What\'s pending?", "What needs my approval?"),
+    ])}
+    ''')
+
+
+def reply_create_rule(hint: str) -> str:
+    """User asked to create a rule — surface matching templates."""
+    hint_l = hint.lower()
+    # Score templates by keyword overlap
+    scored = []
+    for i, tpl in enumerate(RULE_TEMPLATES):
+        score = 0
+        if "aged" in hint_l or "clearance" in hint_l or "slow" in hint_l or "unsold" in hint_l:
+            if tpl["trigger_kind"] == "no_sales_for_days" or tpl["action_kind"] == "create_clearance_promo":
+                score += 3
+        if "buy box" in hint_l or "buybox" in hint_l or "losing" in hint_l:
+            if tpl["trigger_kind"] in ("buybox_lost_for_hours", "high_margin_and_no_buybox") or tpl["action_kind"].startswith("buybox"):
+                score += 3
+        if "pcs" in hint_l or "pro seller" in hint_l:
+            if tpl["trigger_kind"] == "pcs_below_pct":
+                score += 3
+        if "new sku" in hint_l or "repricer" in hint_l:
+            if tpl["action_kind"] == "enroll_in_repricer":
+                score += 3
+        if "margin" in hint_l or "profit" in hint_l:
+            if tpl["trigger_kind"] == "high_margin_and_no_buybox":
+                score += 3
+        if "pause" in hint_l or "stock" in hint_l:
+            if tpl["action_kind"] == "pause_listing":
+                score += 3
+        scored.append((score, i, tpl))
+    scored.sort(key=lambda x: -x[0])
+    top = [(i, tpl) for s, i, tpl in scored if s > 0][:3]
+    if not top:
+        top = [(i, tpl) for s, i, tpl in scored[:3]]
+
+    tpl_cards = "".join(
+        f'<a href="/agent/rules/new/{i}" class="block bg-white rounded-lg border border-wmgray-30 hover:border-marty-100 p-2.5 transition">'
+        f'<div class="flex items-start gap-2">'
+        f'<span class="text-base">{tpl["icon"]}</span>'
+        f'<div class="flex-1 min-w-0">'
+        f'<div class="text-[12px] font-bold text-wmgray-160 leading-tight">{html.escape(tpl["name"])}</div>'
+        f'<div class="text-[11px] text-wmgray-100 leading-snug mt-0.5">{html.escape(tpl["why"][:90])}{"…" if len(tpl["why"]) > 90 else ""}</div>'
+        f'</div></div></a>'
+        for i, tpl in top
+    )
+    return _marty(f'''
+    <div class="font-bold text-wmgray-160">📜 Let\'s create a rule for that.</div>
+    <div class="text-[12px]">Here are my best-matching templates — click to customize the trigger, action, and exclusions:</div>
+    {tpl_cards}
+    <div class="flex gap-1.5 pt-1">
+      {_link_btn("Browse all templates", "/agent/rules/new")}
+    </div>
+    {_suggestions([
+        ("List my active rules", "What rules do I have?"),
+        ("Daily digest", "Show me what you did today"),
+    ])}
+    ''')
+
+
 def reply_community_panel() -> str:
     """Show what other sellers are asking right now — the social-proof intent."""
     chips = "".join(
@@ -582,6 +676,14 @@ def _lang_banner(lang: str, translated_hint: str = "") -> str:
 # ---------- Routes ----------
 
 INTENT_PATTERNS: list[tuple[re.Pattern, Callable[[re.Match], str]]] = [
+    # === Rules intents (very specific so they don\'t collide) ===
+    (re.compile(r'\b(create|make|set up|add|build).{0,15}rule\b(.*)', re.I),
+     lambda m: reply_create_rule(m.group(2) if m.lastindex and m.lastindex >= 2 else "")),
+    (re.compile(r'\b(?:what|which|list|show|see)\b.{0,15}\b(?:rules|repricing rules|standing rules)\b', re.I),
+     lambda m: reply_rules_overview()),
+    (re.compile(r'\b(my )?(active )?(repricing )?rules?\b', re.I),
+     lambda m: reply_rules_overview()),
+
     # === Real seller queries (highest-volume from Smart Filters telemetry) ===
     # NOTE: more-specific compound patterns must come BEFORE the generic ones.
     (re.compile(r'(aged.{0,20}buy.?box|aged.{0,20}losing|aging.{0,20}losing|\u957f\u671f\u5e93\u5b58|old.{0,10}inventory.{0,15}buy.?box|aged.{0,5}inventory)', re.I),

@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}New rule · Pricing Agent{% endblock %}
+{% block content %}
+
+<div class="px-8 py-6 max-w-4xl mx-auto">
+
+  <!-- Breadcrumbs -->
+  <div class="flex items-center justify-between mb-4 text-xs text-wmgray-100">
+    <div class="flex items-center gap-1.5">
+      <a href="/agent/rules" class="hover:underline">Rules</a>
+      <span>/</span>
+      <span class="text-wmgray-130 font-semibold">New rule</span>
+    </div>
+    <a href="/agent/rules" class="text-wmblue-100 font-bold hover:underline">← Back to rules</a>
+  </div>
+
+  {% if step == 'gallery' %}
+    <!-- ============ STEP 1: Template gallery ============ -->
+    <div class="mb-7">
+      <div class="text-4xl mb-3">🧰</div>
+      <h1 class="text-2xl font-extrabold text-wmgray-160 mb-1">Start with a template</h1>
+      <p class="text-wmgray-100">Pick a pattern below. You can customize the values + exclusions on the next screen.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {% for tpl in templates_list %}
+        <a href="/agent/rules/new/{{ loop.index0 }}"
+           class="block bg-white rounded-2xl border-2 border-wmgray-30 hover:border-marty-100 p-5 transition group">
+          <div class="flex items-start gap-4 mb-2">
+            <span class="text-3xl">{{ tpl.icon }}</span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {{ tier_meta[tpl.risk_tier].tone_class }}">{{ tier_meta[tpl.risk_tier].label|upper }}</span>
+              </div>
+              <div class="font-bold text-sm text-wmgray-160 leading-tight">{{ tpl.name }}</div>
+            </div>
+          </div>
+          <div class="text-[12px] text-wmgray-130 leading-snug mb-2">{{ tpl.why }}</div>
+          <div class="text-[11px] font-bold text-marty-100 group-hover:underline">Customize →</div>
+        </a>
+      {% endfor %}
+    </div>
+
+    <div class="text-center text-xs text-wmgray-100 mt-6">
+      Want to start from scratch?
+      <a href="#" class="text-marty-100 font-bold hover:underline">Build a custom rule</a>
+      <span class="text-[10px]">(coming soon)</span>
+    </div>
+
+  {% elif step == 'customize' %}
+    <!-- ============ STEP 2: Customize the chosen template ============ -->
+
+    <div class="mb-7 flex items-start gap-4">
+      <span class="text-5xl">{{ tpl.icon }}</span>
+      <div>
+        <div class="text-xs font-bold text-marty-130 uppercase tracking-wider mb-1">Customize your rule</div>
+        <h1 class="text-2xl font-extrabold text-wmgray-160">{{ tpl.name }}</h1>
+        <p class="text-wmgray-100 text-sm mt-1">{{ tpl.why }}</p>
+      </div>
+    </div>
+
+    <form method="post" action="/agent/rules/new/{{ template_idx }}" class="bg-white rounded-3xl border border-wmgray-30 card-shadow p-7 space-y-6">
+
+      <!-- Name -->
+      <div>
+        <label class="text-xs font-bold text-wmgray-130 uppercase tracking-wider block mb-1.5">Name your rule</label>
+        <input type="text" name="name" value="{{ tpl.name }}" required
+               class="w-full border border-wmgray-30 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-marty-100">
+      </div>
+
+      <!-- TRIGGER -->
+      <div class="border-t border-wmgray-30 pt-5">
+        <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-3">⚡ When (trigger)</div>
+        <div class="flex items-center gap-3 flex-wrap text-sm bg-wmgray-5 p-3 rounded-xl">
+          <span class="text-wmgray-130">An item</span>
+          <span class="font-bold text-wmgray-160">{{ trigger_meta_lookup[tpl.trigger_kind].label }}</span>
+          <input type="number" name="trigger_value" value="{{ tpl.trigger_value }}" step="0.5" min="0" required
+                 class="w-24 border border-wmgray-30 rounded-lg px-2 py-1 text-sm font-bold text-center focus:outline-none focus:border-marty-100">
+          <span class="text-wmgray-130">{{ trigger_meta_lookup[tpl.trigger_kind].unit }}.</span>
+        </div>
+      </div>
+
+      <!-- SCOPE -->
+      <div>
+        <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-3">🎯 Where (scope)</div>
+        <div class="space-y-2">
+          <div>
+            <label class="text-xs text-wmgray-130 block mb-1">SKU cohort</label>
+            <select name="cohort" class="w-full border border-wmgray-30 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-marty-100">
+              {% for c in policy.cohorts %}
+                <option value="{{ c.key }}" {% if c.key == tpl.cohort %}selected{% endif %}>{{ c.label }} ({{ "{:,}".format(c.sku_count) }} items)</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-wmgray-130 block mb-1">Brand filter (optional)</label>
+            <input type="text" name="brand_filter" placeholder="e.g. Garnier, Intex — leave blank for all brands"
+                   class="w-full border border-wmgray-30 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-marty-100">
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTION -->
+      <div class="border-t border-wmgray-30 pt-5">
+        <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-3">⚙️ Then (action)</div>
+        <div class="flex items-center gap-3 flex-wrap text-sm bg-marty-5 p-3 rounded-xl border border-marty-100/20">
+          <span class="text-2xl">{{ action_meta_lookup[tpl.action_kind].icon }}</span>
+          <span class="font-bold text-wmgray-160">{{ action_meta_lookup[tpl.action_kind].label }}</span>
+          {% if action_meta_lookup[tpl.action_kind].unit %}
+            <input type="number" name="action_value" value="{{ tpl.action_value }}" step="0.5" min="0"
+                   class="w-24 border border-wmgray-30 rounded-lg px-2 py-1 text-sm font-bold text-center focus:outline-none focus:border-marty-100">
+            <span class="text-wmgray-130">{{ action_meta_lookup[tpl.action_kind].unit }}</span>
+          {% else %}
+            <input type="hidden" name="action_value" value="{{ tpl.action_value }}">
+          {% endif %}
+        </div>
+        <div class="text-[10px] text-wmgray-100 mt-1.5">
+          Risk tier: <span class="font-bold {{ tier_meta[tpl.risk_tier].tone_class }} px-1.5 py-0.5 rounded">{{ tier_meta[tpl.risk_tier].label|upper }}</span> — based on the action kind.
+        </div>
+      </div>
+
+      <!-- EXCLUSIONS -->
+      <div class="border-t border-wmgray-30 pt-5">
+        <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-3">🛡️ I will NEVER fire on… (recommended defaults)</div>
+        <div class="space-y-2 text-sm">
+          {% for name, label, default_on in [
+            ('exclude_hero_skus', 'Your hero SKUs (top-revenue items)', True),
+            ('exclude_new_skus',  'New SKUs (less than 30 days old)',   True),
+            ('exclude_below_cost','Anything that would land below cost', True),
+          ] %}
+            <label class="flex items-center gap-3 p-2.5 border border-wmgray-30 rounded-xl hover:bg-wmgray-5 cursor-pointer">
+              <input type="checkbox" name="{{ name }}" value="true" {% if default_on %}checked{% endif %} class="rounded">
+              <span class="flex-1 text-wmgray-130">{{ label }}</span>
+              <span class="text-[10px] font-bold text-wmgreen-130">Recommended</span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- START MODE -->
+      <div class="border-t border-wmgray-30 pt-5">
+        <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-3">🚦 How should I start?</div>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="border-2 border-wmgray-30 rounded-xl p-3 cursor-pointer hover:border-marty-100 has-[:checked]:border-marty-100 has-[:checked]:bg-marty-5">
+            <input type="radio" name="start_mode" value="shadow" checked class="hidden">
+            <div class="text-2xl mb-1">👻</div>
+            <div class="font-bold text-sm text-wmgray-160">Start in Shadow</div>
+            <div class="text-[11px] text-wmgray-100 leading-snug mt-0.5">I'll log what I would have done — no actual changes. Review for a few days, then activate.</div>
+            <div class="text-[10px] font-bold text-wmgreen-130 mt-1">Recommended ⭐</div>
+          </label>
+          <label class="border-2 border-wmgray-30 rounded-xl p-3 cursor-pointer hover:border-marty-100 has-[:checked]:border-marty-100 has-[:checked]:bg-marty-5">
+            <input type="radio" name="start_mode" value="active" class="hidden">
+            <div class="text-2xl mb-1">⚡</div>
+            <div class="font-bold text-sm text-wmgray-160">Activate immediately</div>
+            <div class="text-[11px] text-wmgray-100 leading-snug mt-0.5">Start firing actions on the next pricing cycle. Everything still respects your guardrails + exclusions.</div>
+          </label>
+        </div>
+      </div>
+
+      <!-- SAVE -->
+      <div class="flex justify-between items-center pt-5 border-t border-wmgray-30">
+        <a href="/agent/rules/new" class="text-sm font-semibold text-wmgray-100 hover:text-wmgray-130">← Pick a different template</a>
+        <button type="submit" class="px-7 py-3 rounded-xl marty-grad text-white font-extrabold hover:opacity-90">
+          ✓ Save rule
+        </button>
+      </div>
+    </form>
+
+  {% endif %}
+</div>
+{% endblock %}

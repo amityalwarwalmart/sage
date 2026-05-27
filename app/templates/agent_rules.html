@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Repricing rules · Pricing Agent{% endblock %}
+{% block content %}
+
+<div class="px-8 py-6 max-w-7xl mx-auto">
+
+  <!-- Header -->
+  <div class="flex items-start justify-between gap-6 mb-5">
+    <div>
+      <div class="text-xs font-bold text-marty-130 uppercase tracking-wider mb-1">Pricing Agent</div>
+      <div class="flex items-center gap-2">
+        <h1 class="text-3xl font-extrabold text-wmgray-160">Repricing rules</h1>
+        <span class="text-[10px] font-extrabold uppercase bg-marty-100 text-white px-2 py-1 rounded-full">NEW</span>
+      </div>
+      <p class="text-wmgray-100 mt-1">Tell me "when X, do Y" — I'll handle the recurring pattern within your guardrails forever.</p>
+    </div>
+    <div class="flex items-center gap-3 flex-shrink-0">
+      <a href="/agent/rules/new"
+         class="px-4 py-2.5 rounded-xl marty-grad text-white text-sm font-extrabold hover:opacity-90">+ New rule</a>
+    </div>
+  </div>
+
+  <!-- Headline KPIs -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+    <div class="bg-white border border-wmgray-30 rounded-2xl p-4">
+      <div class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider">Active rules</div>
+      <div class="text-2xl font-extrabold text-wmgray-160 mt-1">{{ active_count }}</div>
+      <div class="text-[10px] text-wmgray-100 mt-0.5">of {{ total_rules }} total</div>
+    </div>
+    <div class="bg-white border border-wmgray-30 rounded-2xl p-4">
+      <div class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider">Affected today</div>
+      <div class="text-2xl font-extrabold text-wmblue-100 mt-1">{{ total_affected_today }}</div>
+      <div class="text-[10px] text-wmgray-100 mt-0.5">SKUs touched</div>
+    </div>
+    <div class="bg-white border border-wmgray-30 rounded-2xl p-4">
+      <div class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider">Actions fired</div>
+      <div class="text-2xl font-extrabold text-wmgray-160 mt-1">{{ total_actions_fired_7d }}</div>
+      <div class="text-[10px] text-wmgray-100 mt-0.5">last 7 days</div>
+    </div>
+    <div class="bg-white border border-wmgray-30 rounded-2xl p-4">
+      <div class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider">Units moved</div>
+      <div class="text-2xl font-extrabold text-wmgray-160 mt-1">{{ "{:,}".format(total_units_moved_7d) }}</div>
+      <div class="text-[10px] text-wmgray-100 mt-0.5">last 7 days</div>
+    </div>
+    <div class="bg-white border border-wmgray-30 rounded-2xl p-4">
+      <div class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider">GMV impact</div>
+      <div class="text-2xl font-extrabold text-wmgreen-130 mt-1">+${{ "{:,.0f}".format(total_gmv_impact_7d) }}</div>
+      <div class="text-[10px] text-wmgray-100 mt-0.5">last 7 days</div>
+    </div>
+  </div>
+
+  <!-- Marty's suggested rules (proactive pattern detection) -->
+  {% if suggestions %}
+  <div class="bg-gradient-to-br from-marty-5 to-white rounded-2xl border border-marty-100/30 overflow-hidden mb-5">
+    <div class="px-5 py-3 border-b border-marty-100/20 flex items-center gap-2">
+      <div class="w-7 h-7 rounded-lg marty-orb"></div>
+      <div>
+        <div class="font-bold text-wmgray-160">✨ Marty noticed these patterns — want them as standing rules?</div>
+        <div class="text-xs text-wmgray-100">I've watched your last 14 days of approvals and the marketplace data. These rules would have fired automatically.</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-wmgray-30">
+      {% for s in suggestions %}
+        <div class="p-4">
+          <div class="flex items-start gap-3 mb-2">
+            <span class="text-2xl">{{ s.icon }}</span>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-bold text-wmgray-160 leading-snug">{{ s.name }}</div>
+              <div class="text-[10px] font-bold text-marty-130 mt-0.5">{{ s.confidence }}% confidence</div>
+            </div>
+          </div>
+          <div class="text-[12px] text-wmgray-100 leading-snug mb-3">{{ s.rationale }}</div>
+          {% if s.affected_skus_estimate %}
+            <div class="text-[10px] font-bold text-wmgreen-130 mb-2">~{{ "{:,}".format(s.affected_skus_estimate) }} SKUs would be in scope</div>
+          {% endif %}
+          <a href="/agent/rules/new/{{ s.template_index }}"
+             class="block text-center text-[11px] font-extrabold px-3 py-1.5 rounded-lg bg-marty-100 text-white hover:opacity-90">
+            Create this rule →
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Rules list -->
+  {% set sections = [
+    ('Active', '🟢', actives,   'active'),
+    ('Shadow', '👻', shadow,    'shadow'),
+    ('Paused', '⏸️', paused,    'paused'),
+    ('Drafts', '📝', drafts,    'draft'),
+  ] %}
+  {% for label, emoji, sect, key in sections %}
+    {% if sect %}
+      <div class="mb-5">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-base">{{ emoji }}</span>
+          <span class="text-xs font-bold text-wmgray-100 uppercase tracking-wider">{{ label }} ({{ sect|length }})</span>
+        </div>
+        <div class="bg-white border border-wmgray-30 rounded-2xl divide-y divide-wmgray-30 overflow-hidden">
+          {% for r in sect %}
+            <div class="flex items-start gap-4 px-5 py-4 hover:bg-wmgray-5/50">
+              <span class="text-2xl flex-shrink-0 mt-0.5">{{ r.action_kind | replace('_', ' ') | first }}{# placeholder if no icon - replaced below #}</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {{ r.tier_meta.tone_class }}">{{ r.tier_meta.label|upper }}</span>
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {{ r.status_class }}">{{ r.status|upper }}</span>
+                  {% if r.created_by == 'marty_suggested' %}
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-marty-10 text-marty-130">✨ Marty-suggested</span>
+                  {% endif %}
+                  <span class="text-[10px] text-wmgray-100 ml-auto">Last fired: {{ r.last_fired_label }}</span>
+                </div>
+                <a href="/agent/rules/{{ r.id }}" class="text-sm font-bold text-wmgray-160 hover:text-wmblue-100">{{ r.name }}</a>
+                <div class="text-[12px] text-wmgray-130 leading-snug mt-1 italic">"{{ r.plain_english }}"</div>
+                {% if r.exclusion_summary %}
+                  <div class="text-[11px] text-wmgray-100 mt-1">🛡️ Never on: {{ r.exclusion_summary }}</div>
+                {% endif %}
+              </div>
+              <div class="flex-shrink-0 text-right">
+                <div class="text-xs font-bold text-wmgray-160">{{ r.affected_skus_today }} <span class="font-normal text-wmgray-100">today</span></div>
+                <div class="text-[10px] text-wmgray-100">{{ r.actions_fired_7d }} fired · 7d</div>
+                <div class="text-[11px] font-bold {% if r.gmv_impact_7d_usd > 0 %}text-wmgreen-130{% else %}text-wmgray-100{% endif %} mt-0.5">
+                  {% if r.gmv_impact_7d_usd > 0 %}+${{ "{:,.0f}".format(r.gmv_impact_7d_usd) }}{% else %}—{% endif %}
+                </div>
+              </div>
+              <div class="flex-shrink-0 flex flex-col gap-1.5">
+                <form method="post" action="/agent/rules/{{ r.id }}/toggle">
+                  <button type="submit"
+                          class="text-[10px] font-bold px-2.5 py-1 rounded border border-wmgray-30 text-wmgray-130 hover:border-marty-100 hover:text-marty-100">
+                    {% if r.status == 'active' %}⏸️ Pause{% else %}▶️ Activate{% endif %}
+                  </button>
+                </form>
+                <a href="/agent/rules/{{ r.id }}"
+                   class="text-[10px] font-bold text-center px-2.5 py-1 rounded bg-wmgray-160 text-white hover:bg-wmgray-130">
+                  Open
+                </a>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+
+  {% if not rules %}
+    <div class="bg-white border border-wmgray-30 rounded-2xl px-8 py-16 text-center">
+      <div class="text-5xl mb-3">📜</div>
+      <div class="font-bold text-wmgray-160 mb-1">No rules yet</div>
+      <div class="text-sm text-wmgray-100 mb-4">Create a rule and I'll handle that pattern forever — within your guardrails.</div>
+      <a href="/agent/rules/new" class="inline-block px-5 py-2.5 rounded-xl marty-grad text-white font-extrabold hover:opacity-90">+ Create your first rule</a>
+    </div>
+  {% endif %}
+
+  <!-- Quick template gallery footer -->
+  <div class="bg-wmgray-5 border border-wmgray-30 rounded-2xl p-5 mt-6">
+    <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-3">🧰 Quick templates</div>
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+      {% for tpl in templates_list %}
+        <a href="/agent/rules/new/{{ loop.index0 }}"
+           class="bg-white rounded-xl border border-wmgray-30 hover:border-marty-100 px-3 py-2.5 text-[12px] flex items-start gap-2.5 transition">
+          <span class="text-lg">{{ tpl.icon }}</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-wmgray-160 leading-tight">{{ tpl.name }}</div>
+            <div class="text-[10px] text-wmgray-100 mt-0.5 line-clamp-2">{{ tpl.why[:60] }}{% if tpl.why|length > 60 %}…{% endif %}</div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

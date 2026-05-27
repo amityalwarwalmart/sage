@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}{{ rule.name }} · Repricing rule{% endblock %}
+{% block content %}
+
+<div class="px-8 py-6 max-w-5xl mx-auto">
+
+  <!-- Breadcrumbs -->
+  <div class="flex items-center justify-between mb-4 text-xs text-wmgray-100">
+    <div class="flex items-center gap-1.5">
+      <a href="/" class="hover:underline">Pricing Agent</a>
+      <span>/</span>
+      <a href="/agent/rules" class="hover:underline">Rules</a>
+      <span>/</span>
+      <span class="text-wmgray-130 font-semibold">{{ rule.name }}</span>
+    </div>
+    <a href="/agent/rules" class="text-wmblue-100 font-bold hover:underline">← All rules</a>
+  </div>
+
+  {% if request.query_params.get('just_created') %}
+    <div class="bg-wmgreen-10 border border-wmgreen-100 text-wmgreen-130 rounded-2xl px-4 py-3 mb-4 flex items-center gap-3">
+      <span class="text-xl">🎉</span>
+      <div>
+        <div class="font-bold">Rule created.</div>
+        <div class="text-[12px]">Started in <strong>{{ rule.status }}</strong> mode — review the first few firings, then activate.</div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Header card -->
+  <div class="bg-white rounded-2xl border border-wmgray-30 p-6 mb-5 card-shadow">
+    <div class="flex items-start gap-4">
+      <span class="text-5xl">{{ action_meta.icon }}</span>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap mb-2">
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded {{ rule.tier_meta.tone_class }}">{{ rule.tier_meta.label|upper }} RISK</span>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded {{ rule.status_class }}">{{ rule.status|upper }}</span>
+          {% if rule.created_by == 'marty_suggested' %}
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-marty-10 text-marty-130">✨ Marty-suggested</span>
+          {% endif %}
+          <span class="text-[10px] text-wmgray-100 ml-auto">Last fired {{ rule.last_fired_label }}</span>
+        </div>
+        <h1 class="text-2xl font-extrabold text-wmgray-160 leading-tight">{{ rule.name }}</h1>
+        <div class="text-[14px] text-wmgray-130 italic mt-2 leading-relaxed">"{{ rule.plain_english }}"</div>
+      </div>
+      <div class="flex-shrink-0 flex flex-col gap-2 w-40">
+        <form method="post" action="/agent/rules/{{ rule.id }}/toggle">
+          <button type="submit" class="w-full px-3 py-2 rounded-lg bg-wmgray-160 text-white text-xs font-bold hover:bg-wmgray-130">
+            {% if rule.status == 'active' %}⏸️ Pause rule{% else %}▶️ Activate rule{% endif %}
+          </button>
+        </form>
+        <form method="post" action="/agent/rules/{{ rule.id }}/delete"
+              onsubmit="return confirm('Delete this rule? Any in-flight actions will still complete.');">
+          <button type="submit" class="w-full px-3 py-2 rounded-lg bg-white border border-wmgray-30 text-wmgray-130 text-xs font-bold hover:border-wmred-100 hover:text-wmred-130">
+            🗑️ Delete
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Two-column body -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+    <!-- LEFT 2/3 -->
+    <div class="lg:col-span-2 space-y-5">
+
+      <!-- Trigger / Filter / Action card -->
+      <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden">
+        <div class="px-5 py-3 border-b border-wmgray-30 bg-wmgray-5">
+          <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider">🧩 Rule definition</div>
+        </div>
+        <div class="divide-y divide-wmgray-30">
+          <!-- Trigger -->
+          <div class="px-5 py-4 flex items-start gap-4">
+            <div class="text-2xl flex-shrink-0">{{ trigger_meta.icon }}</div>
+            <div class="flex-1">
+              <div class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider">When (trigger)</div>
+              <div class="text-sm font-bold text-wmgray-160 mt-0.5">
+                an item {{ trigger_meta.label }}
+                <span class="text-marty-130">{{ rule.trigger_value|int if rule.trigger_value == rule.trigger_value|int else rule.trigger_value }} {{ trigger_meta.unit }}</span>
+              </div>
+            </div>
+          </div>
+          <!-- Scope / Filter -->
+          <div class="px-5 py-4 flex items-start gap-4">
+            <div class="text-2xl flex-shrink-0">🎯</div>
+            <div class="flex-1">
+              <div class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider">Where (scope)</div>
+              <div class="text-sm font-bold text-wmgray-160 mt-0.5">{{ rule.scope_sentence }}</div>
+              {% if rule.brand_filter %}
+                <div class="text-[11px] text-wmgray-100 mt-1">Brand filter: <strong>{{ rule.brand_filter }}</strong></div>
+              {% endif %}
+            </div>
+          </div>
+          <!-- Action -->
+          <div class="px-5 py-4 flex items-start gap-4">
+            <div class="text-2xl flex-shrink-0">{{ action_meta.icon }}</div>
+            <div class="flex-1">
+              <div class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider">Then (action)</div>
+              <div class="text-sm font-bold text-wmgray-160 mt-0.5">{{ rule.action_sentence }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Exclusions card -->
+      <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden">
+        <div class="px-5 py-3 border-b border-wmgray-30 bg-wmgray-5">
+          <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider">🛡️ Exclusions — I will NEVER fire this rule on these</div>
+        </div>
+        <div class="divide-y divide-wmgray-30 text-sm">
+          {% set exc_items = [
+            ('Hero SKUs (top-revenue items)', rule.exclude_hero_skus),
+            ('New SKUs (<30 days old)',       rule.exclude_new_skus),
+            ('During promotional blackouts',   rule.exclude_during_blackouts),
+            ('Anything below your cost',       rule.exclude_below_cost),
+          ] %}
+          {% for label, on in exc_items %}
+            <div class="px-5 py-2.5 flex items-center justify-between">
+              <span class="text-wmgray-130">{{ label }}</span>
+              <span class="text-xs font-bold {% if on %}text-wmgreen-130{% else %}text-wmred-130{% endif %}">
+                {% if on %}✓ Excluded{% else %}Not excluded{% endif %}
+              </span>
+            </div>
+          {% endfor %}
+          {% if rule.exclude_brands %}
+            <div class="px-5 py-2.5 flex items-center justify-between">
+              <span class="text-wmgray-130">Excluded brands</span>
+              <span class="text-xs font-bold text-wmgray-160">{{ rule.exclude_brands | join(', ') }}</span>
+            </div>
+          {% endif %}
+          {% if rule.exclude_skus %}
+            <div class="px-5 py-2.5 flex items-center justify-between">
+              <span class="text-wmgray-130">Excluded specific SKUs</span>
+              <span class="text-xs font-bold text-wmgray-160">{{ rule.exclude_skus | length }} items</span>
+            </div>
+          {% endif %}
+        </div>
+        <div class="px-5 py-2.5 bg-wmgray-5 border-t border-wmgray-30 text-[11px] text-wmgray-100">
+          Plus all policy-level guardrails: min margin {{ policy.min_margin_pct }}%, max daily move {{ policy.max_daily_movement_pct }}%, MAP/MSRP{% if policy.respect_map %} ✓{% endif %}.
+        </div>
+      </div>
+
+      <!-- Recent firings (mock — pulled from audit) -->
+      <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden">
+        <div class="px-5 py-3 border-b border-wmgray-30 bg-wmgray-5 flex items-center justify-between">
+          <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider">📜 Recent firings (last 6)</div>
+          <a href="/agent/history" class="text-[11px] font-bold text-wmblue-100 hover:underline">Full audit →</a>
+        </div>
+        <div class="divide-y divide-wmgray-30">
+          {% for e in recent_firings %}
+            <div class="px-5 py-2.5 flex items-center gap-3 text-xs">
+              <span class="text-base">{% if e.verb == 'executed' %}✓{% elif e.verb == 'blocked' %}🛑{% else %}↺{% endif %}</span>
+              <div class="flex-1 min-w-0">
+                <div class="text-wmgray-160 truncate">{{ e.summary }}</div>
+                <div class="text-[10px] text-wmgray-100">{{ e.ts.strftime('%b %-d, %-I:%M %p') }}</div>
+              </div>
+              <span class="text-[10px] font-bold text-wmgray-100">{{ e.verb|upper }}</span>
+            </div>
+          {% else %}
+            <div class="px-5 py-8 text-center text-xs text-wmgray-100">No firings yet — rule will start watching the next pricing cycle.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT 1/3 — Stats sidebar -->
+    <div class="space-y-5">
+      <div class="bg-white rounded-2xl border-2 border-wmgray-30 p-5">
+        <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-4">📊 Performance (last 7 days)</div>
+        <div class="space-y-3">
+          <div>
+            <div class="text-xs text-wmgray-100">SKUs affected today</div>
+            <div class="text-2xl font-extrabold text-wmblue-100">{{ rule.affected_skus_today }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-wmgray-100">Actions fired (7d)</div>
+            <div class="text-2xl font-extrabold text-wmgray-160">{{ rule.actions_fired_7d }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-wmgray-100">Units moved (7d)</div>
+            <div class="text-2xl font-extrabold text-wmgray-160">{{ "{:,}".format(rule.units_moved_7d) }}</div>
+          </div>
+          <div>
+            <div class="text-xs text-wmgray-100">GMV impact (7d)</div>
+            <div class="text-2xl font-extrabold {% if rule.gmv_impact_7d_usd > 0 %}text-wmgreen-130{% else %}text-wmgray-100{% endif %}">
+              {% if rule.gmv_impact_7d_usd > 0 %}+${{ "{:,.0f}".format(rule.gmv_impact_7d_usd) }}{% else %}—{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-wmgray-30 p-5">
+        <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider mb-3">Metadata</div>
+        <dl class="space-y-2 text-xs">
+          <div class="flex justify-between gap-3"><dt class="text-wmgray-100">Rule ID</dt><dd class="font-mono text-wmgray-160">{{ rule.id }}</dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-wmgray-100">Author</dt><dd class="font-semibold text-wmgray-160">{% if rule.created_by == 'marty_suggested' %}✨ Marty-suggested{% else %}👤 You{% endif %}</dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-wmgray-100">Created</dt><dd class="font-semibold text-wmgray-160">{{ rule.created_at.strftime('%b %-d, %Y') }}</dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-wmgray-100">Risk tier</dt><dd class="font-semibold text-wmgray-160">{{ rule.tier_meta.swatch }} {{ rule.tier_meta.label }}</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

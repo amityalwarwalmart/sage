@@ -742,6 +742,352 @@ def _seed_audit() -> list[AuditEvent]:
 AUDIT: list[AuditEvent] = _seed_audit()
 
 
+# ============================================================
+# Repricing rules — the seller-authored "WHEN x THEN y" layer.
+# A gap Walmart doesn't have natively today: catalog-level rules
+# that auto-fire scoped actions within the seller's policy.
+# Each rule is risk-tiered (low/med/high) based on its action,
+# obeys ALL policy guardrails + cohort exclusions, and produces
+# new PricingActions that flow through the same approval pipeline.
+# ============================================================
+
+RuleStatus = Literal["active", "paused", "draft", "shadow"]
+RuleTriggerKind = Literal[
+    "no_sales_for_days",          # "if no units sold for 365d"
+    "buybox_lost_for_hours",      # "if Buy Box lost for 24h"
+    "price_gap_above_pct",        # "if competitor is >5% lower"
+    "inventory_aging_days",       # "if item is >180 days in inventory"
+    "pcs_below_pct",              # "if SKU PCS drops below 70%"
+    "high_margin_and_no_buybox",  # "if margin >X% AND not winning BB"
+    "new_sku_after_days",         # "30 days after launch"
+]
+RuleActionKind = Literal[
+    "create_clearance_promo",     # create N% off promo
+    "buybox_match",               # match competitor within floor
+    "buybox_beat_by_cent",        # beat by $0.01
+    "drop_price_pct",             # drop price by N%
+    "pause_listing",              # pause SKU
+    "enroll_in_repricer",         # add to Walmart Repricer
+    "apply_fee_incentive",        # opt into reduced-fee offer
+    "alert_only",                 # surface in inbox, take no action
+]
+
+TRIGGER_META: dict[str, dict[str, str]] = {
+    "no_sales_for_days":         {"label": "hasn't sold in",          "unit": "days",    "icon": "💭"},
+    "buybox_lost_for_hours":     {"label": "has lost Buy Box for",    "unit": "hours",   "icon": "🎯"},
+    "price_gap_above_pct":       {"label": "is priced above competitor by", "unit": "%",  "icon": "💰"},
+    "inventory_aging_days":      {"label": "has been in inventory for", "unit": "days",   "icon": "📦"},
+    "pcs_below_pct":             {"label": "has PCS below",            "unit": "%",      "icon": "📉"},
+    "high_margin_and_no_buybox": {"label": "margin is above",          "unit": "% and no Buy Box", "icon": "💵"},
+    "new_sku_after_days":        {"label": "is",                       "unit": "days old", "icon": "🆕"},
+}
+
+ACTION_KIND_META: dict[str, dict[str, str]] = {
+    "create_clearance_promo":  {"label": "create a clearance promo at",   "unit": "% off",  "icon": "🏷️", "tier": "medium"},
+    "buybox_match":            {"label": "match the Buy Box price (within floor)", "unit": "",       "icon": "🎯", "tier": "low"},
+    "buybox_beat_by_cent":     {"label": "beat the Buy Box price by $0.01", "unit": "",            "icon": "💸", "tier": "low"},
+    "drop_price_pct":          {"label": "drop the price by",            "unit": "%",      "icon": "📉", "tier": "medium"},
+    "pause_listing":           {"label": "pause the listing",            "unit": "",       "icon": "⏸️", "tier": "high"},
+    "enroll_in_repricer":      {"label": "enroll in Walmart Repricer",   "unit": "",       "icon": "⚡", "tier": "medium"},
+    "apply_fee_incentive":     {"label": "apply the reduced-fee incentive", "unit": "",   "icon": "💵", "tier": "medium"},
+    "alert_only":              {"label": "surface in my inbox for review", "unit": "",     "icon": "📬", "tier": "low"},
+}
+
+
+@dataclass
+class RepricingRule:
+    id: str
+    name: str                         # "Move aged inventory with 20% clearance"
+    description: str                  # short human-readable summary
+    status: RuleStatus = "active"
+    # Trigger
+    trigger_kind: RuleTriggerKind = "no_sales_for_days"
+    trigger_value: float = 365.0
+    # Filter (scopes WHICH cohort the rule applies to)
+    cohort: CohortKey = "all_enrolled"
+    brand_filter: str = ""            # "Garnier", "Intex", or "" for all
+    category_filter: str = ""
+    # Action
+    action_kind: RuleActionKind = "create_clearance_promo"
+    action_value: float = 20.0        # the magnitude (% off, $ delta, etc.)
+    # Exclusions (always-respected)
+    exclude_hero_skus: bool = True
+    exclude_new_skus: bool = True
+    exclude_during_blackouts: bool = True
+    exclude_below_cost: bool = True
+    exclude_brands: list[str] = field(default_factory=list)
+    exclude_skus: list[str] = field(default_factory=list)
+    # Risk tier (derived from action_kind by default)
+    risk_tier: RiskTier = "medium"
+    # Author + audit
+    created_by: Literal["seller", "marty_suggested"] = "seller"
+    created_at: datetime = field(default_factory=datetime.now)
+    last_fired_at: datetime | None = None
+    # Stats (computed in the demo — in prod these would be live counters)
+    affected_skus_today: int = 0
+    actions_fired_7d: int = 0
+    gmv_impact_7d_usd: float = 0.0
+    units_moved_7d: int = 0
+
+    @property
+    def trigger_sentence(self) -> str:
+        t = TRIGGER_META[self.trigger_kind]
+        val = int(self.trigger_value) if self.trigger_value == int(self.trigger_value) else self.trigger_value
+        return f"an item {t['label']} {val} {t['unit']}"
+
+    @property
+    def action_sentence(self) -> str:
+        a = ACTION_KIND_META[self.action_kind]
+        val = ""
+        if a["unit"]:
+            num = int(self.action_value) if self.action_value == int(self.action_value) else self.action_value
+            val = f" {num}{a['unit']}" if a['unit'] in ("%", "% off") else f" {num} {a['unit']}"
+        return f"{a['label']}{val}"
+
+    @property
+    def scope_sentence(self) -> str:
+        parts = []
+        if self.cohort and self.cohort != "all_enrolled":
+            cohort_label = next((c.label for c in POLICY.cohorts if c.key == self.cohort), self.cohort)
+            parts.append(f"in the {cohort_label}")
+        if self.brand_filter:
+            parts.append(f"from brand {self.brand_filter}")
+        if self.category_filter:
+            parts.append(f"in {self.category_filter}")
+        return " ".join(parts) if parts else "across your catalog"
+
+    @property
+    def exclusion_summary(self) -> str:
+        parts = []
+        if self.exclude_hero_skus: parts.append("hero SKUs")
+        if self.exclude_new_skus: parts.append("new SKUs <30d")
+        if self.exclude_during_blackouts: parts.append("blackout windows")
+        if self.exclude_below_cost: parts.append("anything below cost")
+        if self.exclude_brands: parts.append(f"brands: {', '.join(self.exclude_brands)}")
+        if self.exclude_skus: parts.append(f"{len(self.exclude_skus)} specific SKUs")
+        return " · ".join(parts)
+
+    @property
+    def plain_english(self) -> str:
+        return f"When {self.trigger_sentence} {self.scope_sentence}, {self.action_sentence}."
+
+    @property
+    def last_fired_label(self) -> str:
+        if not self.last_fired_at:
+            return "never"
+        delta = datetime.now() - self.last_fired_at
+        if delta < timedelta(minutes=60):
+            return f"{int(delta.total_seconds() // 60)}m ago"
+        if delta < timedelta(hours=24):
+            return f"{int(delta.total_seconds() // 3600)}h ago"
+        return f"{delta.days}d ago"
+
+    @property
+    def tier_meta(self) -> dict[str, str]:
+        return TIER_META[self.risk_tier]
+
+    @property
+    def status_class(self) -> str:
+        return {
+            "active":  "bg-wmgreen-10 text-wmgreen-130",
+            "paused":  "bg-wmgray-10 text-wmgray-130",
+            "draft":   "bg-spark-10 text-spark-140",
+            "shadow":  "bg-marty-10 text-marty-130",
+        }[self.status]
+
+
+def _seed_rules() -> list[RepricingRule]:
+    now = datetime.now()
+    rules: list[RepricingRule] = [
+        # ============ Rule 1: the user\'s example ============
+        RepricingRule(
+            id="rule-101",
+            name="Move 12-month aged inventory with clearance promo",
+            description="The classic dead-stock clearance — fire a 20%-off clearance promo on anything that hasn't sold in a year.",
+            status="active",
+            trigger_kind="no_sales_for_days", trigger_value=365.0,
+            cohort="inventory_risk",
+            action_kind="create_clearance_promo", action_value=20.0,
+            risk_tier="medium",
+            last_fired_at=now - timedelta(hours=3),
+            affected_skus_today=14, actions_fired_7d=87,
+            gmv_impact_7d_usd=4_280.0, units_moved_7d=210,
+        ),
+        # ============ Rule 2: Buy Box recovery ============
+        RepricingRule(
+            id="rule-102",
+            name="Recover Buy Box on price-competitive cohort",
+            description="If we've lost Buy Box for 24h on a SKU in the price-competitive cohort, match the competitor price (within floor).",
+            status="active",
+            trigger_kind="buybox_lost_for_hours", trigger_value=24.0,
+            cohort="price_risk",
+            action_kind="buybox_match", action_value=0,
+            risk_tier="low",
+            last_fired_at=now - timedelta(minutes=11),
+            affected_skus_today=42, actions_fired_7d=296,
+            gmv_impact_7d_usd=18_640.0, units_moved_7d=812,
+        ),
+        # ============ Rule 3: PCS drop alert ============
+        RepricingRule(
+            id="rule-103",
+            name="Alert me if Pro Seller status is at risk",
+            description="If my catalog-level PCS drops below the 75% Pro Seller benchmark, surface it as a high-priority action.",
+            status="active",
+            trigger_kind="pcs_below_pct", trigger_value=75.0,
+            cohort="all_enrolled",
+            action_kind="alert_only", action_value=0,
+            risk_tier="low",
+            last_fired_at=now - timedelta(hours=8),
+            affected_skus_today=1, actions_fired_7d=3,
+            gmv_impact_7d_usd=0.0, units_moved_7d=0,
+        ),
+        # ============ Rule 4: High-margin Buy Box recovery ============
+        RepricingRule(
+            id="rule-104",
+            name="Beat-by-1¢ on high-margin items losing Buy Box",
+            description="On items with >35% margin where we've lost Buy Box, beat the competitor by $0.01 — plenty of room left in the margin.",
+            status="shadow",
+            trigger_kind="high_margin_and_no_buybox", trigger_value=35.0,
+            cohort="all_enrolled",
+            action_kind="buybox_beat_by_cent", action_value=0,
+            risk_tier="low",
+            exclude_brands=["Burberry", "Davidoff"],  # luxury brands where buybox-chasing is bad
+            last_fired_at=now - timedelta(hours=17),
+            affected_skus_today=23, actions_fired_7d=141,
+            gmv_impact_7d_usd=9_120.0, units_moved_7d=297,
+        ),
+        # ============ Rule 5: New SKU → enroll in Repricer ============
+        RepricingRule(
+            id="rule-105",
+            name="Auto-enroll new SKUs in Repricer after 30 days",
+            description="Give new SKUs 30 days of manual pricing, then auto-enroll them in Repricer so they don't fall behind.",
+            status="paused",  # user paused while reviewing
+            trigger_kind="new_sku_after_days", trigger_value=30.0,
+            cohort="new_skus",
+            action_kind="enroll_in_repricer", action_value=0,
+            risk_tier="medium",
+            last_fired_at=now - timedelta(days=4),
+            affected_skus_today=0, actions_fired_7d=12,
+            gmv_impact_7d_usd=2_410.0, units_moved_7d=58,
+        ),
+    ]
+    return rules
+
+
+RULES: list[RepricingRule] = _seed_rules()
+
+
+# ---- Rule helpers ----
+
+RULE_TEMPLATES: list[dict] = [
+    {
+        "name": "Move aged inventory (12mo) with 20% clearance",
+        "trigger_kind": "no_sales_for_days", "trigger_value": 365,
+        "action_kind": "create_clearance_promo", "action_value": 20,
+        "cohort": "inventory_risk", "risk_tier": "medium",
+        "icon": "🐢", "why": "Classic dead-stock cleanup. WFS storage fees kick in hard after 12 months — better to take a margin hit and recover capital.",
+    },
+    {
+        "name": "Recover Buy Box on price-risk cohort",
+        "trigger_kind": "buybox_lost_for_hours", "trigger_value": 24,
+        "action_kind": "buybox_match", "action_value": 0,
+        "cohort": "price_risk", "risk_tier": "low",
+        "icon": "🎯", "why": "24h lost Buy Box on a price-sensitive SKU is signal, not noise. Auto-match within your floor.",
+    },
+    {
+        "name": "Alert on Pro Seller PCS drop",
+        "trigger_kind": "pcs_below_pct", "trigger_value": 75,
+        "action_kind": "alert_only", "action_value": 0,
+        "cohort": "all_enrolled", "risk_tier": "low",
+        "icon": "📉", "why": "Pro Seller eligibility is tied to PCS. A drop below 75% is a leading indicator — you want to know.",
+    },
+    {
+        "name": "Beat-by-1¢ on high-margin items losing Buy Box",
+        "trigger_kind": "high_margin_and_no_buybox", "trigger_value": 35,
+        "action_kind": "buybox_beat_by_cent", "action_value": 0,
+        "cohort": "all_enrolled", "risk_tier": "low",
+        "icon": "💵", "why": "If you've got >35% margin, you've got room to fight for Buy Box — and the extra units make it net-positive.",
+    },
+    {
+        "name": "Enroll new SKUs in Repricer after 30 days",
+        "trigger_kind": "new_sku_after_days", "trigger_value": 30,
+        "action_kind": "enroll_in_repricer", "action_value": 0,
+        "cohort": "new_skus", "risk_tier": "medium",
+        "icon": "🆕", "why": "Give new SKUs a month of manual pricing to establish a baseline, then automate.",
+    },
+    {
+        "name": "Pause listings out of stock for >7 days",
+        "trigger_kind": "no_sales_for_days", "trigger_value": 7,
+        "action_kind": "pause_listing", "action_value": 0,
+        "cohort": "all_enrolled", "risk_tier": "high",
+        "icon": "⏸️", "why": "Active out-of-stock listings hurt your Buy Box win rate across the catalog. Pausing them protects PCS.",
+    },
+]
+
+
+def rule_by_id(rid: str) -> RepricingRule | None:
+    return next((r for r in RULES if r.id == rid), None)
+
+
+def toggle_rule_status(rid: str) -> bool:
+    r = rule_by_id(rid)
+    if not r:
+        return False
+    if r.status == "active":
+        r.status = "paused"
+    elif r.status in ("paused", "shadow", "draft"):
+        r.status = "active"
+    return True
+
+
+def delete_rule(rid: str) -> bool:
+    global RULES
+    before = len(RULES)
+    RULES = [r for r in RULES if r.id != rid]
+    return len(RULES) < before
+
+
+def add_rule(rule: RepricingRule) -> None:
+    RULES.append(rule)
+
+
+# ---- Suggested rules — Marty notices patterns in audit history ----
+
+@dataclass
+class SuggestedRule:
+    name: str
+    rationale: str               # "You approved 7 similar markdowns in 14 days"
+    icon: str
+    confidence: int              # 0-100
+    template_index: int          # index into RULE_TEMPLATES
+    affected_skus_estimate: int
+
+
+def suggested_rules() -> list[SuggestedRule]:
+    """In production these would be ML-detected. For the demo, hand-crafted."""
+    return [
+        SuggestedRule(
+            name="Aged-inventory clearance pattern detected",
+            rationale="You\'ve approved 7 slow-mover markdowns in the last 14 days — all from the inventory-risk cohort.",
+            icon="🐢", confidence=92, template_index=0,
+            affected_skus_estimate=1054,
+        ),
+        SuggestedRule(
+            name="Pro Seller PCS guardrail",
+            rationale="Your PCS sits 9.56 points below the Pro Seller benchmark — an alert rule would catch dips before they cost you the badge.",
+            icon="📉", confidence=86, template_index=2,
+            affected_skus_estimate=0,
+        ),
+        SuggestedRule(
+            name="Beat-by-1¢ on high-margin items",
+            rationale="23 of your high-margin SKUs lost Buy Box in the past week. A standing rule recovers them automatically.",
+            icon="💵", confidence=78, template_index=3,
+            affected_skus_estimate=23,
+        ),
+    ]
+
+
+
 # --- KPI helpers ---
 
 def run_stats() -> AgentRunStat:
