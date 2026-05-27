@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · Pricing Agent{% endblock %}
+{% block content %}
+<div class="px-8 py-12 max-w-3xl mx-auto">
+  <div class="bg-white rounded-2xl border-2 border-dashed border-marty-100/40 p-12 text-center">
+    <div class="text-5xl mb-4">🚧</div>
+    <div class="text-xs font-bold text-marty-130 uppercase tracking-wider mb-2">Coming in Wave B / C</div>
+    <h1 class="text-3xl font-extrabold text-wmgray-160 mb-3">{{ title }}</h1>
+    <p class="text-wmgray-130 leading-relaxed max-w-xl mx-auto">{{ blurb }}</p>
+    <div class="mt-6">
+      <a href="/" class="px-5 py-2.5 rounded-lg marty-grad text-white font-bold inline-block">← Back to agent overview</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Pricing Agent · Seller Center{% endblock %}
+{% block content %}
+
+<div class="px-8 py-6 max-w-7xl mx-auto">
+
+  <!-- ============ Page header ============ -->
+  <div class="flex items-start justify-between gap-6 mb-5">
+    <div class="flex items-start gap-3">
+      <div class="w-12 h-12 rounded-2xl marty-orb flex-shrink-0 mt-1"></div>
+      <div>
+        <div class="flex items-center gap-2 mb-0.5">
+          <h1 class="text-3xl font-extrabold text-wmgray-160">Pricing Agent</h1>
+          <span class="text-[10px] font-bold uppercase marty-grad text-white px-2 py-0.5 rounded">Beta</span>
+          <span class="text-[11px] text-wmgray-100">powered by Marty</span>
+        </div>
+        <p class="text-wmgray-100">Automates the boring pricing work. Asks before anything risky.</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <a href="/agent/policy" class="px-4 py-2 rounded-lg border border-wmgray-30 text-sm font-bold text-wmgray-130 hover:bg-wmgray-5">Policy &amp; guardrails</a>
+      <a href="/agent/inbox" class="px-4 py-2 rounded-lg marty-grad text-white text-sm font-bold hover:opacity-90">
+        Open agent inbox{% if needs_approval_count %} · {{ needs_approval_count }} pending{% endif %} →
+      </a>
+    </div>
+  </div>
+
+  <!-- ============ MODE BANNER (rollout staging — the PRD's trust mechanic) ============ -->
+  <div class="mb-5 rounded-2xl overflow-hidden border-2 {% if policy.mode == 'shadow' %}border-wmgray-160{% elif policy.mode == 'recommend' %}border-spark-100{% else %}border-wmblue-100{% endif %} card-shadow">
+    <div class="flex flex-col md:flex-row">
+      <!-- Mode label -->
+      <div class="mode-{{ policy.mode }} px-6 py-5 flex items-center gap-4 md:w-72 flex-shrink-0">
+        <div class="text-3xl">
+          {% if policy.mode == 'shadow' %}👻{% elif policy.mode == 'recommend' %}🪧{% else %}🤖{% endif %}
+        </div>
+        <div>
+          <div class="text-[10px] font-bold uppercase tracking-wider opacity-80">Current mode</div>
+          <div class="text-2xl font-extrabold">{{ mode_meta.label }}</div>
+        </div>
+      </div>
+      <!-- Tagline + switch -->
+      <div class="flex-1 px-6 py-5 bg-white flex items-center justify-between gap-6">
+        <div class="flex-1">
+          <p class="text-wmgray-130 leading-snug">{{ mode_meta.tagline }}</p>
+          <div class="text-xs text-wmgray-100 mt-1">
+            Last check {{ stats.last_check_minutes_ago }} min ago · scanning {{ policy.cohorts | selectattr('enrolled') | list | length }} enrolled cohorts
+          </div>
+        </div>
+        <form method="post" action="/agent/mode" class="flex gap-1 bg-wmgray-5 rounded-lg p-1">
+          {% for key, meta in all_modes.items() %}
+            <button type="submit" name="mode" value="{{ key }}"
+                    class="px-3 py-1.5 rounded text-xs font-bold transition
+                    {% if policy.mode == key %}bg-white text-wmgray-160 card-shadow{% else %}text-wmgray-100 hover:text-wmgray-160{% endif %}">
+              {{ meta.label }}
+            </button>
+          {% endfor %}
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ KPI strip ============ -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-xl border border-wmgray-30 p-4">
+      <div class="flex items-center justify-between mb-1">
+        <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider">GMV uplift · 7d</div>
+        <span class="text-xs">📈</span>
+      </div>
+      <div class="text-2xl font-extrabold text-wmgreen-130">+${{ "{:,.0f}".format(stats.gmv_uplift_usd_7d) }}</div>
+      <div class="text-[11px] text-wmgray-100 mt-1">vs holdout · attributed</div>
+    </div>
+    <div class="bg-white rounded-xl border border-wmgray-30 p-4">
+      <div class="flex items-center justify-between mb-1">
+        <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider">Buy Box wins added</div>
+        <span class="text-xs">🎯</span>
+      </div>
+      <div class="text-2xl font-extrabold text-wmgray-160">+{{ stats.buybox_wins_added_7d }}</div>
+      <div class="text-[11px] text-wmgray-100 mt-1">last 7 days</div>
+    </div>
+    <div class="bg-white rounded-xl border border-wmgray-30 p-4">
+      <div class="flex items-center justify-between mb-1">
+        <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider">PCS lift · 7d</div>
+        <span class="text-xs">📊</span>
+      </div>
+      <div class="text-2xl font-extrabold text-wmgray-160">+{{ "%.2f"|format(stats.pcs_delta_7d) }}pts</div>
+      <div class="text-[11px] text-wmgray-100 mt-1">9.71pts to Pro Seller</div>
+    </div>
+    <div class="bg-white rounded-xl border border-wmgray-30 p-4">
+      <div class="flex items-center justify-between mb-1">
+        <div class="text-xs font-bold text-wmgray-100 uppercase tracking-wider">Hours saved · 7d</div>
+        <span class="text-xs">⏰</span>
+      </div>
+      <div class="text-2xl font-extrabold text-wmgray-160">{{ "%.1f"|format(stats.hours_saved_estimate_7d) }}h</div>
+      <div class="text-[11px] text-wmgray-100 mt-1">estimated</div>
+    </div>
+  </div>
+
+  <!-- ============ Two-column: tier breakdown + needs approval ============ -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+
+    <!-- LEFT: Tier breakdown (the PRD's core IP visualized) -->
+    <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden">
+      <div class="px-5 py-4 border-b border-wmgray-30">
+        <div class="font-bold text-wmgray-160">Risk-tiered action model</div>
+        <div class="text-xs text-wmgray-100">How I decide what's safe to auto-execute</div>
+      </div>
+      <div class="divide-y divide-wmgray-30">
+        <!-- LOW -->
+        <div class="px-5 py-4">
+          <div class="flex items-center gap-3 mb-2">
+            <span class="text-lg">🟢</span>
+            <span class="font-bold text-wmgreen-130">Low risk</span>
+            <span class="ml-auto text-xs font-bold text-wmgray-130">Auto</span>
+          </div>
+          <div class="text-xs text-wmgray-130 mb-2 leading-snug">
+            SPIP un-suppress, Buy Box match/beat within floor, revert expired promo.
+          </div>
+          <div class="text-xs text-wmgray-100">
+            <span class="font-bold text-wmgray-160">{{ low_tier_count }}</span> proposed ·
+            <span class="font-bold text-wmgreen-130">{{ stats.actions_auto_executed_24h }}</span> auto-executed today
+          </div>
+        </div>
+        <!-- MEDIUM -->
+        <div class="px-5 py-4">
+          <div class="flex items-center gap-3 mb-2">
+            <span class="text-lg">🟡</span>
+            <span class="font-bold text-spark-140">Medium risk</span>
+            <span class="ml-auto text-xs font-bold text-wmgray-130">Bulk approve</span>
+          </div>
+          <div class="text-xs text-wmgray-130 mb-2 leading-snug">
+            Pro Seller competitiveness, &gt;5% drops, slow-mover markdowns, fee-linked offers.
+          </div>
+          <div class="text-xs text-wmgray-100">
+            <span class="font-bold text-wmgray-160">{{ med_tier_count }}</span> proposed · all waiting for your sign-off
+          </div>
+        </div>
+        <!-- HIGH -->
+        <div class="px-5 py-4">
+          <div class="flex items-center gap-3 mb-2">
+            <span class="text-lg">🔴</span>
+            <span class="font-bold text-wmred-130">High risk</span>
+            <span class="ml-auto text-xs font-bold text-wmgray-130">Always approve</span>
+          </div>
+          <div class="text-xs text-wmgray-130 mb-2 leading-snug">
+            Below-cost, MAP violations, new SKU pricing, hero SKUs, bundles.
+          </div>
+          <div class="text-xs text-wmgray-100">
+            <span class="font-bold text-wmgray-160">{{ high_tier_count }}</span> proposed ·
+            <span class="font-bold text-wmred-130">{{ blocked | length }}</span> blocked by guardrail today
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Needs approval preview (spans 2 cols) -->
+    <div class="lg:col-span-2 bg-white rounded-2xl border border-wmgray-30 overflow-hidden">
+      <div class="px-5 py-4 border-b border-wmgray-30 flex items-center justify-between">
+        <div>
+          <div class="font-bold text-wmgray-160">Needs your approval</div>
+          <div class="text-xs text-wmgray-100">{{ needs_approval_count }} action{% if needs_approval_count != 1 %}s{% endif %} waiting · oldest is {{ needs_approval[0].age_label if needs_approval else 'n/a' }}</div>
+        </div>
+        <a href="/agent/inbox" class="text-xs font-bold text-wmblue-100 hover:underline">Open agent inbox →</a>
+      </div>
+      <div class="divide-y divide-wmgray-30">
+        {% for a in needs_approval %}
+          <a href="/agent/action/{{ a.id }}" class="flex items-start gap-4 px-5 py-3.5 hover:bg-wmgray-5 transition">
+            <div class="text-2xl flex-shrink-0 mt-0.5">{{ a.item_image_emoji }}</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded {{ a.tier_meta.tone_class }}">{{ a.tier_meta.label|upper }}</span>
+                <span class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider">{{ a.action_icon }} {{ a.action_label }}</span>
+                <span class="text-[10px] text-wmgray-100 ml-auto">{{ a.age_label }}</span>
+              </div>
+              <div class="text-sm font-semibold text-wmgray-160 leading-tight truncate">{{ a.item_name }}</div>
+              <div class="text-xs text-wmgray-100 mt-0.5">{{ a.reason_oneliner }}</div>
+            </div>
+            {% if a.current_price > 0 %}
+              <div class="text-right flex-shrink-0 flex flex-col items-end gap-1">
+                <div class="flex items-center gap-1.5 text-xs">
+                  <span class="bubble-current px-2 py-0.5 rounded font-bold">${{ "%.2f"|format(a.current_price) }}</span>
+                  <span class="text-wmgray-100">→</span>
+                  <span class="bubble-proposed px-2 py-0.5 rounded font-bold">${{ "%.2f"|format(a.proposed_price) }}</span>
+                </div>
+                <div class="text-[10px] font-bold {% if a.expected_gmv_lift_usd > 0 %}text-wmgreen-130{% else %}text-wmred-130{% endif %}">
+                  {% if a.expected_gmv_lift_usd > 0 %}+${{ "{:,.0f}".format(a.expected_gmv_lift_usd) }}{% else %}—{% endif %}
+                </div>
+              </div>
+            {% else %}
+              <div class="text-right flex-shrink-0">
+                <div class="text-sm font-extrabold text-wmgreen-130">+${{ "{:,.0f}".format(a.expected_gmv_lift_usd) }}</div>
+                <div class="text-[10px] text-wmgray-100">est. 30d</div>
+              </div>
+            {% endif %}
+          </a>
+        {% else %}
+          <div class="px-5 py-10 text-center text-sm text-wmgray-100">
+            ✅ Nothing waiting. I'll let you know when there is.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Recently auto-executed ============ -->
+  <div class="bg-white rounded-2xl border border-wmgray-30 overflow-hidden mb-5">
+    <div class="px-5 py-4 border-b border-wmgray-30 flex items-center justify-between">
+      <div>
+        <div class="font-bold text-wmgray-160">Recently auto-executed</div>
+        <div class="text-xs text-wmgray-100">Low-risk actions I took on my own (within your guardrails)</div>
+      </div>
+      <a href="/agent/history" class="text-xs font-bold text-wmblue-100 hover:underline">Full history →</a>
+    </div>
+    <div class="divide-y divide-wmgray-30">
+      {% for a in auto_executed %}
+        <div class="flex items-start gap-4 px-5 py-3">
+          <div class="text-xl flex-shrink-0">{{ a.item_image_emoji }}</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded tier-low">LOW</span>
+              <span class="text-[10px] font-bold text-wmgray-100 uppercase tracking-wider">{{ a.action_icon }} {{ a.action_label }}</span>
+              <span class="text-[10px] text-wmgray-100 ml-auto">{{ a.age_label }}</span>
+            </div>
+            <div class="text-sm text-wmgray-160 mt-0.5">
+              <span class="font-semibold truncate">{{ a.item_name }}</span> ·
+              <span class="text-wmgray-100">{{ a.reason_oneliner }}</span>
+            </div>
+          </div>
+          <div class="text-right flex items-center gap-2 flex-shrink-0">
+            {% if a.current_price > 0 %}
+              <span class="text-xs bubble-current px-2 py-0.5 rounded font-bold">${{ "%.2f"|format(a.current_price) }}</span>
+              <span class="text-wmgray-100">→</span>
+              <span class="text-xs bubble-proposed px-2 py-0.5 rounded font-bold">${{ "%.2f"|format(a.proposed_price) }}</span>
+            {% endif %}
+            <a href="/agent/action/{{ a.id }}" class="text-xs font-bold text-wmblue-100 hover:underline ml-2">Details →</a>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ============ Blocked by guardrails (trust mechanic) ============ -->
+  {% if blocked %}
+  <div class="bg-white rounded-2xl border-2 border-wmred-100/30 overflow-hidden mb-5">
+    <div class="px-5 py-4 border-b border-wmgray-30 flex items-center justify-between bg-wmred-5">
+      <div class="flex items-center gap-2">
+        <span class="text-xl">🛡️</span>
+        <div>
+          <div class="font-bold text-wmgray-160">Blocked by your guardrails</div>
+          <div class="text-xs text-wmgray-100">Actions I wanted to take, but stopped myself</div>
+        </div>
+      </div>
+    </div>
+    <div class="divide-y divide-wmgray-30">
+      {% for a in blocked %}
+        <a href="/agent/action/{{ a.id }}" class="flex items-start gap-4 px-5 py-3 hover:bg-wmgray-5">
+          <div class="text-xl flex-shrink-0">{{ a.item_image_emoji }}</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold text-wmgray-160">{{ a.item_name }}</div>
+            <div class="text-xs text-wmred-130 mt-0.5">🛑 {{ a.reason_oneliner }}</div>
+          </div>
+          <div class="text-xs font-bold text-wmblue-100 flex-shrink-0">Review →</div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
