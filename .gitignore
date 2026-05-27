@@ -1,6 +1,11 @@
--e .venv/
+.venv/
 __pycache__/
 *.pyc
 .DS_Store
 sage.db
+.env
+.env.local
+*.log
+.idea/
+.vscode/
 
