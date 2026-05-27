@@ -629,7 +629,7 @@ def reply_community_panel() -> str:
     )
     return _marty(f'''
     <div class="font-bold text-wmgray-160">👥 Sellers like you have been asking…</div>
-    <div class="text-[12px] text-wmgray-100">Top 6 Smart Filter queries this month — across English, Chinese, and Turkish. Click any to run it.</div>
+    <div class="text-[12px] text-wmgray-100">Top 6 questions from the seller community this month — across English, Chinese, and Turkish. Click any to run it.</div>
     <div class="space-y-1.5">{chips}</div>
     ''')
 
